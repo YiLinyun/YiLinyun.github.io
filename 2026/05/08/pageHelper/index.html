@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>AsterBlog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="PageHelper分页插件使用指南 本文档全面介绍PageHelper插件的核心功能、使用方法和注意事项，帮助开发者高效实现MyBatis分页  一、插件概述PageHelper是基于MyBatis的分页拦截器，通过动态改写SQL实现分页功能：  二、快速开始1. 添加依赖xml 复制 12345&lt;dependency&gt;    &lt;groupId&gt;com.github.p">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AsterBlog">
+<meta property="og:url" content="http://example.com/2026/05/08/pageHelper/index.html">
+<meta property="og:site_name" content="AsterBlog">
+<meta property="og:description" content="PageHelper分页插件使用指南 本文档全面介绍PageHelper插件的核心功能、使用方法和注意事项，帮助开发者高效实现MyBatis分页  一、插件概述PageHelper是基于MyBatis的分页拦截器，通过动态改写SQL实现分页功能：  二、快速开始1. 添加依赖xml 复制 12345&lt;dependency&gt;    &lt;groupId&gt;com.github.p">
+<meta property="og:locale" content="zn_CN">
+<meta property="og:image" content="c:\Users\admin\OneDrive\%E5%8D%9A%E5%AE%A2%E6%96%87%E7%AB%A0%E5%87%86%E5%A4%87\img\%E5%BE%AE%E4%BF%A1%E6%88%AA%E5%9B%BE_20250729183016.png">
+<meta property="article:published_time" content="2026-05-08T15:50:15.752Z">
+<meta property="article:modified_time" content="2025-07-29T10:32:00.000Z">
+<meta property="article:author" content="Aster">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="c:\Users\admin\OneDrive\%E5%8D%9A%E5%AE%A2%E6%96%87%E7%AB%A0%E5%87%86%E5%A4%87\img\%E5%BE%AE%E4%BF%A1%E6%88%AA%E5%9B%BE_20250729183016.png">
+  
+    <link rel="alternate" href="/atom.xml" title="AsterBlog" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
+
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">AsterBlog</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS Feed"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="Search"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-pageHelper" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2026/05/08/pageHelper/" class="article-date">
+  <time class="dt-published" datetime="2026-05-08T15:50:15.752Z" itemprop="datePublished">2026-05-08</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<h1 id="PageHelper分页插件使用指南"><a href="#PageHelper分页插件使用指南" class="headerlink" title="PageHelper分页插件使用指南"></a>PageHelper分页插件使用指南</h1><blockquote>
+<p>本文档全面介绍PageHelper插件的核心功能、使用方法和注意事项，帮助开发者高效实现MyBatis分页</p>
+</blockquote>
+<h2 id="一、插件概述"><a href="#一、插件概述" class="headerlink" title="一、插件概述"></a>一、插件概述</h2><p>PageHelper是基于MyBatis的<strong>分页拦截器</strong>，通过动态改写SQL实现分页功能：</p>
+<p><img src="C:\Users\admin\OneDrive\博客文章准备\img\微信截图_20250729183016.png" alt="微信截图_20250729183016"></p>
+<h2 id="二、快速开始"><a href="#二、快速开始" class="headerlink" title="二、快速开始"></a>二、快速开始</h2><h3 id="1-添加依赖"><a href="#1-添加依赖" class="headerlink" title="1. 添加依赖"></a>1. 添加依赖</h3><p>xml</p>
+<p>复制</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.github.pagehelper<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>pagehelper<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>5.3.2<span class="tag">&lt;/<span class="name">version</span>&gt;</span> <span class="comment">&lt;!-- 使用最新版本 --&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-基本配置"><a href="#2-基本配置" class="headerlink" title="2. 基本配置"></a>2. 基本配置</h3><p><strong>XML配置 (mybatis-config.xml):</strong></p>
+<p>xml</p>
+<p>复制</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">plugins</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">plugin</span> <span class="attr">interceptor</span>=<span class="string">&quot;com.github.pagehelper.PageInterceptor&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;helperDialect&quot;</span> <span class="attr">value</span>=<span class="string">&quot;mysql&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;reasonable&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;supportMethodsArguments&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">plugin</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">plugins</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>Spring Boot配置 (application.yml):</strong></p>
+<p>yaml</p>
+<p>复制</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">pagehelper:</span></span><br><span class="line">  <span class="attr">helper-dialect:</span> <span class="string">mysql</span></span><br><span class="line">  <span class="attr">reasonable:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">support-methods-arguments:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="三、核心使用方式"><a href="#三、核心使用方式" class="headerlink" title="三、核心使用方式"></a>三、核心使用方式</h2><h3 id="1-基础分页"><a href="#1-基础分页" class="headerlink" title="1. 基础分页"></a>1. 基础分页</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 分页查询：第2页，每页10条</span></span><br><span class="line">PageHelper.startPage(<span class="number">2</span>, <span class="number">10</span>);</span><br><span class="line"></span><br><span class="line">List&lt;User&gt; users = userMapper.selectAll(); </span><br><span class="line"></span><br><span class="line"><span class="comment">// 转换为PageInfo对象</span></span><br><span class="line">PageInfo&lt;User&gt; pageInfo = <span class="keyword">new</span> <span class="title class_">PageInfo</span>&lt;&gt;(users);</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-使用PageInfo（推荐）"><a href="#2-使用PageInfo（推荐）" class="headerlink" title="2. 使用PageInfo（推荐）"></a>2. 使用PageInfo（推荐）</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">pageInfo.getTotal();      <span class="comment">// 总记录数</span></span><br><span class="line">pageInfo.getList();       <span class="comment">// 当前页数据 </span></span><br><span class="line">pageInfo.getPageNum();    <span class="comment">// 当前页码</span></span><br><span class="line">pageInfo.getPages();      <span class="comment">// 总页数</span></span><br><span class="line">pageInfo.getNavigatePages(<span class="number">5</span>); <span class="comment">// 获取5页导航页</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-高级查询模式"><a href="#3-高级查询模式" class="headerlink" title="3. 高级查询模式"></a>3. 高级查询模式</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">PageHelper.startPage(<span class="number">1</span>, <span class="number">20</span>)</span><br><span class="line">         .setOrderBy(<span class="string">&quot;create_time DESC&quot;</span>)</span><br><span class="line">         .doSelectPage(() -&gt; &#123;</span><br><span class="line">             userMapper.findByConditon(condition);</span><br><span class="line">         &#125;);</span><br></pre></td></tr></table></figure>
+
+<h2 id="四、分页对象对比"><a href="#四、分页对象对比" class="headerlink" title="四、分页对象对比"></a>四、分页对象对比</h2><h3 id="Page与PageInfo核心区别"><a href="#Page与PageInfo核心区别" class="headerlink" title="Page与PageInfo核心区别"></a>Page与PageInfo核心区别</h3><table>
+<thead>
+<tr>
+<th align="center"><strong>特性</strong></th>
+<th align="center"><code>Page</code>对象</th>
+<th align="center"><code>PageInfo</code>对象</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><strong>继承关系</strong></td>
+<td align="center">ArrayList子类</td>
+<td align="center">独立POJO</td>
+</tr>
+<tr>
+<td align="center"><strong>包含数据</strong></td>
+<td align="center">本身就是数据列表</td>
+<td align="center">通过<code>getList()</code>获取</td>
+</tr>
+<tr>
+<td align="center"><strong>导航信息</strong></td>
+<td align="center">❌ 无</td>
+<td align="center">✅ 完整导航信息</td>
+</tr>
+<tr>
+<td align="center"><strong>序列化友好度</strong></td>
+<td align="center">需要特殊处理</td>
+<td align="center">✅ 开箱即用</td>
+</tr>
+<tr>
+<td align="center"><strong>内存占用</strong></td>
+<td align="center">轻量级</td>
+<td align="center">较高（含导航数据）</td>
+</tr>
+<tr>
+<td align="center"><strong>适用场景</strong></td>
+<td align="center">简单分页展示</td>
+<td align="center">带导航的复杂分页</td>
+</tr>
+</tbody></table>
+<h2 id="五、关键注意事项"><a href="#五、关键注意事项" class="headerlink" title="五、关键注意事项"></a>五、关键注意事项</h2><h3 id="1-执行顺序要求（最重要）"><a href="#1-执行顺序要求（最重要）" class="headerlink" title="1. 执行顺序要求（最重要）"></a>1. 执行顺序要求（最重要）</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ✅ 正确示例</span></span><br><span class="line">PageHelper.startPage(pageNum, pageSize);</span><br><span class="line">List&lt;User&gt; users = userMapper.selectUsers();</span><br><span class="line"></span><br><span class="line"><span class="comment">// ❌ 错误示例</span></span><br><span class="line">List&lt;User&gt; users = userMapper.selectUsers();</span><br><span class="line">PageHelper.startPage(pageNum, pageSize); <span class="comment">// 无效</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-线程安全处理"><a href="#2-线程安全处理" class="headerlink" title="2. 线程安全处理"></a>2. 线程安全处理</h3><p>在多线程环境下务必及时清理ThreadLocal：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">    PageHelper.startPage(<span class="number">1</span>, <span class="number">10</span>);</span><br><span class="line">    <span class="keyword">return</span> userMapper.selectAll();</span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    <span class="comment">// 确保清除ThreadLocal数据</span></span><br><span class="line">    PageHelper.clearPage(); </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-count优化策略"><a href="#3-count优化策略" class="headerlink" title="3. count优化策略"></a>3. count优化策略</h3><p>针对大数据表优化count查询：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">select</span> <span class="attr">id</span>=<span class="string">&quot;selectWithLargeData&quot;</span> <span class="attr">resultType</span>=<span class="string">&quot;User&quot;</span>&gt;</span></span><br><span class="line">    SELECT /*! 分页不统计字段 */ name, email FROM large_table</span><br><span class="line"><span class="tag">&lt;/<span class="name">select</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">PageHelper.startPage(<span class="number">1</span>, <span class="number">100</span>, <span class="literal">false</span>) <span class="comment">// 关闭自动count</span></span><br><span class="line">          .setCount(() -&gt; customCountMethod());</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-特殊分页场景处理"><a href="#4-特殊分页场景处理" class="headerlink" title="4. 特殊分页场景处理"></a>4. 特殊分页场景处理</h3><p><strong>物理分页VS逻辑分页：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 内存分页（小数据集）</span></span><br><span class="line">PageHelper.startPage(<span class="number">1</span>, <span class="number">100</span>, <span class="literal">false</span>, <span class="literal">true</span>, <span class="literal">true</span>); </span><br><span class="line"></span><br><span class="line"><span class="comment">// 物理分页（大数据集）</span></span><br><span class="line">PageHelper.startPage(<span class="number">1</span>, <span class="number">1000</span>, <span class="literal">true</span>); </span><br></pre></td></tr></table></figure>
+
+<p><strong>获取所有列总数但仅返回部分列：</strong></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* 需要统计的字段 */</span></span><br><span class="line"><span class="keyword">SELECT</span> SQL_CALC_FOUND_ROWS id, name <span class="keyword">FROM</span> users;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* 获取实际总数 */</span></span><br><span class="line"><span class="keyword">SELECT</span> FOUND_ROWS() <span class="keyword">AS</span> total;</span><br></pre></td></tr></table></figure>
+
+<h2 id="六、高级功能指南"><a href="#六、高级功能指南" class="headerlink" title="六、高级功能指南"></a>六、高级功能指南</h2><h3 id="1-多表联合查询分页"><a href="#1-多表联合查询分页" class="headerlink" title="1. 多表联合查询分页"></a>1. 多表联合查询分页</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="operator">&lt;</span><span class="operator">!</span><span class="comment">-- 需在SQL中明确指定主表字段 --&gt;</span></span><br><span class="line"><span class="keyword">SELECT</span> u.<span class="operator">*</span>, d.name <span class="keyword">as</span> dept_name </span><br><span class="line"><span class="keyword">FROM</span> users u </span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> department d <span class="keyword">ON</span> u.dept_id <span class="operator">=</span> d.id</span><br></pre></td></tr></table></figure>
+
+<p>配置参数：</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">pagehelper.count-sql-func</span>=<span class="string">count(0)</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-分页拦截器扩展点"><a href="#2-分页拦截器扩展点" class="headerlink" title="2. 分页拦截器扩展点"></a>2. 分页拦截器扩展点</h3><p>自定义拦截器实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CustomPageInterceptor</span> <span class="keyword">extends</span> <span class="title class_">PageInterceptor</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">afterAll</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// 自定义分页后处理逻辑</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="七、常见问题解决方案"><a href="#七、常见问题解决方案" class="headerlink" title="七、常见问题解决方案"></a>七、常见问题解决方案</h2><h3 id="Q1：分页后返回的总数错误"><a href="#Q1：分页后返回的总数错误" class="headerlink" title="Q1：分页后返回的总数错误"></a>Q1：分页后返回的总数错误</h3><p><strong>原因排查：</strong></p>
+<ol>
+<li>多表JOIN统计不准确</li>
+<li>自动生成的COUNT语句错误</li>
+<li>SQL中存在GROUP BY</li>
+</ol>
+<p><strong>解决方案：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">PageHelper.startPage(<span class="number">1</span>, <span class="number">10</span>)</span><br><span class="line">    .doCount(<span class="literal">true</span>) <span class="comment">// 强制使用自定义count</span></span><br><span class="line">    .setCountSqlParser(<span class="keyword">new</span> <span class="title class_">CustomCountParser</span>()); </span><br></pre></td></tr></table></figure>
+
+<h3 id="Q2：分页页码跳转异常"><a href="#Q2：分页页码跳转异常" class="headerlink" title="Q2：分页页码跳转异常"></a>Q2：分页页码跳转异常</h3><p><strong>配置参数：</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">pagehelper:</span></span><br><span class="line">  <span class="attr">reasonable:</span> <span class="literal">true</span>       <span class="comment"># 修正异常页码</span></span><br><span class="line">  <span class="attr">page-size-zero:</span> <span class="literal">true</span>   <span class="comment"># 允许pageSize=0返回全部结果</span></span><br><span class="line">  <span class="attr">params:</span> <span class="string">count=countSql</span> </span><br></pre></td></tr></table></figure>
+
+<h3 id="Q3：性能问题（千万级数据）"><a href="#Q3：性能问题（千万级数据）" class="headerlink" title="Q3：性能问题（千万级数据）"></a>Q3：性能问题（千万级数据）</h3><p>优化策略：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. 禁用自动count</span></span><br><span class="line">PageHelper.startPage(<span class="number">1</span>, <span class="number">100</span>, <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 2. 使用并行count查询</span></span><br><span class="line">CompletableFuture&lt;Long&gt; countFuture = supplyAsync(() -&gt; userMapper.count());</span><br><span class="line"></span><br><span class="line"><span class="comment">// 3. 分批次获取数据</span></span><br><span class="line">PageHelper.offsetPage(<span class="number">0</span>, <span class="number">1000</span>);</span><br><span class="line"><span class="keyword">while</span> (hasMore) &#123;</span><br><span class="line">    List&lt;User&gt; batch = userMapper.selectLarge();</span><br><span class="line">    PageHelper.offsetPage(batch.size(), <span class="number">1000</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="八、最佳实践建议"><a href="#八、最佳实践建议" class="headerlink" title="八、最佳实践建议"></a>八、最佳实践建议</h2><ol>
+<li><strong>统一分页返回格式</strong></li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">PageResult</span>&lt;T&gt; &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> page;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> pageSize;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">long</span> total;</span><br><span class="line">    <span class="keyword">private</span> List&lt;T&gt; items;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> &lt;T&gt; PageResult&lt;T&gt; <span class="title function_">of</span><span class="params">(PageInfo&lt;T&gt; pageInfo)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">PageResult</span>&lt;&gt;(</span><br><span class="line">            pageInfo.getPageNum(),</span><br><span class="line">            pageInfo.getPageSize(),</span><br><span class="line">            pageInfo.getTotal(),</span><br><span class="line">            pageInfo.getList()</span><br><span class="line">        );</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><strong>Controller层统一处理</strong></li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@GetMapping(&quot;/users&quot;)</span></span><br><span class="line"><span class="keyword">public</span> PageResult&lt;User&gt; <span class="title function_">getUsers</span><span class="params">(</span></span><br><span class="line"><span class="params">    <span class="meta">@RequestParam(defaultValue = &quot;1&quot;)</span> <span class="type">int</span> page,</span></span><br><span class="line"><span class="params">    <span class="meta">@RequestParam(defaultValue = &quot;10&quot;)</span> <span class="type">int</span> size</span></span><br><span class="line"><span class="params">)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> userService.getPagedUsers(page, size);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><strong>使用AOP简化分页</strong></li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Around(&quot;execution(* *..*Service.*Paged(..))&quot;)</span></span><br><span class="line"><span class="keyword">public</span> Object <span class="title function_">handlePagination</span><span class="params">(ProceedingJoinPoint joinPoint)</span> &#123;</span><br><span class="line">    Object[] args = joinPoint.getArgs();</span><br><span class="line">    <span class="type">PageParam</span> <span class="variable">param</span> <span class="operator">=</span> extractPageParam(args); <span class="comment">// 自定义参数提取</span></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        PageHelper.startPage(param.getPage(), param.getSize());</span><br><span class="line">        <span class="keyword">return</span> joinPoint.proceed();</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        PageHelper.clearPage();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="九、版本升级说明"><a href="#九、版本升级说明" class="headerlink" title="九、版本升级说明"></a>九、版本升级说明</h2><table>
+<thead>
+<tr>
+<th align="center">版本</th>
+<th align="center">重要变更</th>
+<th align="center">迁移建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">v4.x</td>
+<td align="center">旧版API</td>
+<td align="center">建议升级到v5.x</td>
+</tr>
+<tr>
+<td align="center">v5.0</td>
+<td align="center">重构为PageInterceptor</td>
+<td align="center">需修改配置类名</td>
+</tr>
+<tr>
+<td align="center">v5.1+</td>
+<td align="center">增强对Spring Boot支持</td>
+<td align="center">推荐使用starter</td>
+</tr>
+<tr>
+<td align="center">v5.3+</td>
+<td align="center">支持JDK8+特性</td>
+<td align="center">要求JDK8+环境</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>官方文档：<a target="_blank" rel="noopener" href="https://github.com/pagehelper/Mybatis-PageHelper">https://github.com/pagehelper/Mybatis-PageHelper</a></p>
+</blockquote>
+<p>通过本文档，您应该能够掌握PageHelper的核心使用方法和关键优化策略。在实际项目中，请根据数据量和业务场景选择合适的分页策略。</p>
+</blockquote>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2026/05/08/pageHelper/" data-id="cmox3dh6a00076kr23k3f80s8" data-title="" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2026/05/08/spring%E4%BA%8B%E5%8A%A1/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          (no title)
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2026/05/08/mysql%20-case/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title"></div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/05/">May 2026</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2026/05/08/%E5%BC%82%E5%B8%B8%E7%9A%84%E6%94%BE%E7%BD%AE%E4%BD%8D%E7%BD%AE/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/%E4%B9%B1%E8%B5%B7%E5%85%AB%E7%B3%9F%E7%9A%84%E8%AE%B0%E5%BD%95/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/XML%20%20CDATA/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/ThreadLocal/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/spring%E4%BA%8B%E5%8A%A1/">(no title)</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2026 Aster<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

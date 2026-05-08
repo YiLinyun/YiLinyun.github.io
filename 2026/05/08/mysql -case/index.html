@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>AsterBlog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="markdown 复制 123456789101112131415&gt;# MySQL &#96;CASE&#96; 函数详解## 📌 核心功能&#96;CASE&#96; 是 MySQL 中的**条件表达式**，用于在查询中实现逻辑分支（类似编程中的 &#96;if-else&#96;&#x2F;&#96;switch&#96;）&gt;## 📐 两种语法形式&gt;### 1. 简单 CASE 表达式（精确匹配）&#96;&#96;&#96;sqlCASE 字段名    WHEN">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AsterBlog">
+<meta property="og:url" content="http://example.com/2026/05/08/mysql%20-case/index.html">
+<meta property="og:site_name" content="AsterBlog">
+<meta property="og:description" content="markdown 复制 123456789101112131415&gt;# MySQL &#96;CASE&#96; 函数详解## 📌 核心功能&#96;CASE&#96; 是 MySQL 中的**条件表达式**，用于在查询中实现逻辑分支（类似编程中的 &#96;if-else&#96;&#x2F;&#96;switch&#96;）&gt;## 📐 两种语法形式&gt;### 1. 简单 CASE 表达式（精确匹配）&#96;&#96;&#96;sqlCASE 字段名    WHEN">
+<meta property="og:locale" content="zn_CN">
+<meta property="article:published_time" content="2026-05-08T15:50:15.343Z">
+<meta property="article:modified_time" content="2025-08-03T15:02:16.606Z">
+<meta property="article:author" content="Aster">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="AsterBlog" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
+
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">AsterBlog</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS Feed"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="Search"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-mysql -case" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2026/05/08/mysql%20-case/" class="article-date">
+  <time class="dt-published" datetime="2026-05-08T15:50:15.343Z" itemprop="datePublished">2026-05-08</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>markdown</p>
+<p>复制</p>
+<figure class="highlight markdown"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">&gt;# MySQL <span class="code">`CASE`</span> 函数详解</span><br><span class="line"></span><br><span class="line"><span class="section">## 📌 核心功能</span></span><br><span class="line"><span class="code">`CASE`</span> 是 MySQL 中的<span class="strong">**条件表达式**</span>，用于在查询中实现逻辑分支（类似编程中的 <span class="code">`if-else`</span>/<span class="code">`switch`</span>）</span><br><span class="line"></span><br><span class="line">&gt;## 📐 两种语法形式</span><br><span class="line"></span><br><span class="line">&gt;### 1. 简单 CASE 表达式（精确匹配）</span><br><span class="line"><span class="code">```sql</span></span><br><span class="line"><span class="code">CASE 字段名</span></span><br><span class="line"><span class="code">    WHEN 值1 THEN 结果1</span></span><br><span class="line"><span class="code">      WHEN 值2 THEN 结果2</span></span><br><span class="line"><span class="code">    ...</span></span><br><span class="line"><span class="code">    ELSE 默认结果</span></span><br><span class="line"><span class="code">END</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>应用场景</strong>：字段值精确匹配时<br>​<strong>示例</strong>​：</p>
+<p> sql</p>
+<p>复制</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> </span><br><span class="line">    product_id,</span><br><span class="line">    <span class="keyword">CASE</span> category_id </span><br><span class="line">        <span class="keyword">WHEN</span> <span class="number">1</span> <span class="keyword">THEN</span> <span class="string">&#x27;电子产品&#x27;</span></span><br><span class="line">        <span class="keyword">WHEN</span> <span class="number">2</span> <span class="keyword">THEN</span> <span class="string">&#x27;家居用品&#x27;</span></span><br><span class="line">        <span class="keyword">ELSE</span> <span class="string">&#x27;其他&#x27;</span></span><br><span class="line">      <span class="keyword">END</span> <span class="keyword">AS</span> category</span><br><span class="line"><span class="keyword">FROM</span> products;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-搜索-CASE-表达式（复杂条件）"><a href="#2-搜索-CASE-表达式（复杂条件）" class="headerlink" title="2. 搜索 CASE 表达式（复杂条件）"></a>2. 搜索 CASE 表达式（复杂条件）</h3><p>sql</p>
+<p>复制</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CASE</span></span><br><span class="line">    <span class="keyword">WHEN</span> 条件<span class="number">1</span> <span class="keyword">THEN</span> 结果<span class="number">1</span></span><br><span class="line">     <span class="keyword">WHEN</span> 条件<span class="number">2</span> <span class="keyword">THEN</span> 结果<span class="number">2</span></span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">ELSE</span> 默认结果</span><br><span class="line"><span class="keyword">END</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>应用场景</strong>：需要使用比较运算符（<code>&gt;</code>, <code>&lt;</code>, <code>BETWEEN</code>）或逻辑运算时<br>​<strong>示例</strong>​：</p>
+<p>sql</p>
+<p>  复制</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> </span><br><span class="line">    student_name,</span><br><span class="line">    <span class="keyword">CASE</span></span><br><span class="line">        <span class="keyword">WHEN</span> score <span class="operator">&gt;=</span> <span class="number">90</span> <span class="keyword">THEN</span> <span class="string">&#x27;A&#x27;</span></span><br><span class="line">        <span class="keyword">WHEN</span> score <span class="operator">&gt;=</span> <span class="number">80</span> <span class="keyword">THEN</span> <span class="string">&#x27;B&#x27;</span></span><br><span class="line">             <span class="keyword">WHEN</span> score <span class="operator">&gt;=</span> <span class="number">60</span> <span class="keyword">THEN</span> <span class="string">&#x27;C&#x27;</span></span><br><span class="line">        <span class="keyword">ELSE</span> <span class="string">&#x27;D&#x27;</span></span><br><span class="line">    <span class="keyword">END</span> <span class="keyword">AS</span> grade</span><br><span class="line"><span class="keyword">FROM</span> exam;</span><br></pre></td></tr></table></figure>
+
+<h2 id="⚠️-关键特性"><a href="#⚠️-关键特性" class="headerlink" title="⚠️ 关键特性"></a>⚠️ 关键特性</h2><pre><code> 1. **执行顺序**：从上到下判断，**首个满足条件的分支**生效
+</code></pre>
+<p>2. </p>
+<p>   返回值</p>
+<pre><code>    ：
+</code></pre>
+<ul>
+<li>所有结果应有兼容的数据类型（统一返回字符串&#x2F;数字）</li>
+<li>未匹配且未指定 <code>ELSE</code> 时返回 <code>NULL</code></li>
+</ul>
+<ol start="3">
+<li><strong>命名</strong>：使用 <code>AS</code> 给结果列命名（如：<code>END AS result</code>）</li>
+</ol>
+<h2 id="🔍-解析分组统计示例"><a href="#🔍-解析分组统计示例" class="headerlink" title="🔍 解析分组统计示例"></a>🔍 解析分组统计示例</h2><p>sql</p>
+<p>复制</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">    <span class="keyword">SELECT</span></span><br><span class="line">    <span class="keyword">CASE</span> job </span><br><span class="line">        <span class="keyword">WHEN</span> <span class="number">1</span> <span class="keyword">THEN</span> <span class="string">&#x27;班主任&#x27;</span> </span><br><span class="line">        <span class="keyword">WHEN</span> <span class="number">2</span> <span class="keyword">THEN</span> <span class="string">&#x27;讲师&#x27;</span> </span><br><span class="line">        <span class="keyword">WHEN</span> <span class="number">3</span> <span class="keyword">THEN</span> <span class="string">&#x27;学工主管&#x27;</span> </span><br><span class="line">        <span class="keyword">WHEN</span> <span class="number">4</span> <span class="keyword">THEN</span> <span class="string">&#x27;教研主管&#x27;</span> </span><br><span class="line">            <span class="keyword">WHEN</span> <span class="number">5</span> <span class="keyword">THEN</span> <span class="string">&#x27;咨询师&#x27;</span> </span><br><span class="line">        <span class="keyword">ELSE</span> <span class="string">&#x27;其他&#x27;</span> </span><br><span class="line">    <span class="keyword">END</span> <span class="keyword">AS</span> pos,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="operator">*</span>) total</span><br><span class="line"><span class="keyword">FROM</span> emp </span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> job  <span class="comment">-- ✅ 分组依据是原始job值</span></span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> total;  <span class="comment">-- 按计数结果升序排序</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="✨-代码解析："><a href="#✨-代码解析：" class="headerlink" title="✨ 代码解析："></a>✨ 代码解析：</h3><table>
+<thead>
+<tr>
+<th align="center">组件</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>CASE job...END AS pos</code></td>
+<td align="center">将数字职位ID转为中文名称</td>
+</tr>
+<tr>
+<td align="center"><code>COUNT(*) total</code></td>
+<td align="center">统计每个分组的记录数</td>
+</tr>
+<tr>
+<td align="center"><code>GROUP BY job</code></td>
+<td align="center"><strong>关键点</strong>：按原始<code>job</code>值分组（非转换后的<code>pos</code>)</td>
+</tr>
+</tbody></table>
+<pre><code>|    `ORDER BY total`     |               按统计数量升序排列                |
+</code></pre>
+<h3 id="🔥-典型应用场景："><a href="#🔥-典型应用场景：" class="headerlink" title="🔥 典型应用场景："></a>🔥 典型应用场景：</h3><ol>
+<li><p>数据透视表统计</p>
+<p>sql</p>
+<p>复制</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 统计各成绩段人数</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">  <span class="built_in">COUNT</span>(<span class="keyword">CASE</span> <span class="keyword">WHEN</span> score <span class="operator">&gt;=</span> <span class="number">90</span> <span class="keyword">THEN</span> <span class="number">1</span> <span class="keyword">END</span>) <span class="keyword">AS</span> <span class="string">&#x27;A&#x27;</span>,</span><br><span class="line">  <span class="built_in">COUNT</span>(<span class="keyword">CASE</span> <span class="keyword">WHEN</span> score <span class="operator">&gt;=</span> <span class="number">80</span> <span class="keyword">THEN</span> <span class="number">1</span> <span class="keyword">END</span>) <span class="keyword">AS</span> <span class="string">&#x27;B&#x27;</span></span><br><span class="line"><span class="keyword">FROM</span> students;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>条件排序</p>
+<p>sql</p>
+<p>复制</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">     <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">CASE</span> status </span><br><span class="line">     <span class="keyword">WHEN</span> <span class="string">&#x27;紧急&#x27;</span> <span class="keyword">THEN</span> <span class="number">1</span> </span><br><span class="line">     <span class="keyword">WHEN</span> <span class="string">&#x27;高&#x27;</span> <span class="keyword">THEN</span> <span class="number">2</span> </span><br><span class="line">     <span class="keyword">ELSE</span> <span class="number">3</span> </span><br><span class="line"><span class="keyword">END</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>字段值转换显示</p>
+</li>
+</ol>
+<p>  sql</p>
+<p>  复制</p>
+  <figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> </span><br><span class="line"> order_id,</span><br><span class="line">  <span class="keyword">CASE</span> status_code </span><br><span class="line">     <span class="keyword">WHEN</span> <span class="string">&#x27;P&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;已付款&#x27;</span> </span><br><span class="line">     <span class="keyword">WHEN</span> <span class="string">&#x27;S&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;已发货&#x27;</span></span><br><span class="line">  <span class="keyword">END</span> <span class="keyword">AS</span> status</span><br><span class="line"><span class="keyword">FROM</span> orders;</span><br></pre></td></tr></table></figure>
+<h2 id="💡-重要注意事项"><a href="#💡-重要注意事项" class="headerlink" title="💡 重要注意事项"></a>💡 重要注意事项</h2><pre><code>1. **分组陷阱**：使用 `GROUP BY` 时，确保理解分组依据是**原始字段值**而非转换结果
+</code></pre>
+<ol start="2">
+<li><strong>性能优化</strong>：对大数据表避免在 <code>WHERE</code> 子句中使用 <code>CASE</code></li>
+<li><strong>多分支合并</strong>：相同逻辑结果可合并分支（如 <code>WHEN 4 OR 5 THEN &#39;管理岗&#39;</code>）</li>
+</ol>
+<blockquote>
+<p>通过 <code>CASE</code> 可实现灵活的<strong>数据清洗、分类统计和结果转换</strong>，是 SQL 查询中最强大的工具之一！</p>
+</blockquote>
+<pre><code>复制
+</code></pre>
+<figure class="highlight markdown"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">undefined</span><br></pre></td></tr></table></figure>
+</blockquote>
+<h4 id="IF用法"><a href="#IF用法" class="headerlink" title="IF用法"></a>IF用法</h4><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 统计员工的性别信息 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">select</span> <span class="attr">id</span>=<span class="string">&quot;countEmpGenderData&quot;</span> <span class="attr">resultType</span>=<span class="string">&quot;java.util.Map&quot;</span>&gt;</span></span><br><span class="line">    select</span><br><span class="line">    if(gender = 1, &#x27;男&#x27;, &#x27;女&#x27;) as name,</span><br><span class="line">    count(*) as value</span><br><span class="line">    from emp group by gender ;</span><br><span class="line"><span class="tag">&lt;/<span class="name">select</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>if函数语法：<code>if(条件, 条件为true取值, 条件为false取值)</code></p>
+<p>ifnull函数语法：<code>ifnull(expr, val1)</code>    如果expr不为null，取自身，否则取val1</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2026/05/08/mysql%20-case/" data-id="cmox3dh6a00066kr20ds6atji" data-title="" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2026/05/08/pageHelper/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          (no title)
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2026/05/08/Monitor/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title"></div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/05/">May 2026</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2026/05/08/%E5%BC%82%E5%B8%B8%E7%9A%84%E6%94%BE%E7%BD%AE%E4%BD%8D%E7%BD%AE/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/%E4%B9%B1%E8%B5%B7%E5%85%AB%E7%B3%9F%E7%9A%84%E8%AE%B0%E5%BD%95/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/XML%20%20CDATA/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/ThreadLocal/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/spring%E4%BA%8B%E5%8A%A1/">(no title)</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2026 Aster<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

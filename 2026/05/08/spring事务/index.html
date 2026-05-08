@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>AsterBlog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="Spring事务管理深度笔记一、核心概念1. ACID特性在Spring中的体现 **原子性(Atomicity)**：通过@Transactional保证操作要么全部成功，要么全部回滚 **一致性(Consistency)**：数据库约束+业务校验双重保障 **隔离性(Isolation)**：通过隔离级别控制并发访问 **持久性(Durability)**：事务提交后数据持久化到存储  2.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AsterBlog">
+<meta property="og:url" content="http://example.com/2026/05/08/spring%E4%BA%8B%E5%8A%A1/index.html">
+<meta property="og:site_name" content="AsterBlog">
+<meta property="og:description" content="Spring事务管理深度笔记一、核心概念1. ACID特性在Spring中的体现 **原子性(Atomicity)**：通过@Transactional保证操作要么全部成功，要么全部回滚 **一致性(Consistency)**：数据库约束+业务校验双重保障 **隔离性(Isolation)**：通过隔离级别控制并发访问 **持久性(Durability)**：事务提交后数据持久化到存储  2.">
+<meta property="og:locale" content="zn_CN">
+<meta property="og:image" content="c:\Users\admin\OneDrive\%E5%8D%9A%E5%AE%A2%E6%96%87%E7%AB%A0%E5%87%86%E5%A4%87\img\2.png">
+<meta property="og:image" content="c:\Users\admin\OneDrive\%E5%8D%9A%E5%AE%A2%E6%96%87%E7%AB%A0%E5%87%86%E5%A4%87\img\1.png">
+<meta property="article:published_time" content="2026-05-08T15:50:16.201Z">
+<meta property="article:modified_time" content="2025-07-31T07:30:21.000Z">
+<meta property="article:author" content="Aster">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="c:\Users\admin\OneDrive\%E5%8D%9A%E5%AE%A2%E6%96%87%E7%AB%A0%E5%87%86%E5%A4%87\img\2.png">
+  
+    <link rel="alternate" href="/atom.xml" title="AsterBlog" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
+
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">AsterBlog</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS Feed"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="Search"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-spring事务" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2026/05/08/spring%E4%BA%8B%E5%8A%A1/" class="article-date">
+  <time class="dt-published" datetime="2026-05-08T15:50:16.201Z" itemprop="datePublished">2026-05-08</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<h1 id="Spring事务管理深度笔记"><a href="#Spring事务管理深度笔记" class="headerlink" title="Spring事务管理深度笔记"></a>Spring事务管理深度笔记</h1><h2 id="一、核心概念"><a href="#一、核心概念" class="headerlink" title="一、核心概念"></a>一、核心概念</h2><h3 id="1-ACID特性在Spring中的体现"><a href="#1-ACID特性在Spring中的体现" class="headerlink" title="1. ACID特性在Spring中的体现"></a>1. ACID特性在Spring中的体现</h3><ul>
+<li>**原子性(Atomicity)**：通过<code>@Transactional</code>保证操作要么全部成功，要么全部回滚</li>
+<li>**一致性(Consistency)**：数据库约束+业务校验双重保障</li>
+<li>**隔离性(Isolation)**：通过隔离级别控制并发访问</li>
+<li>**持久性(Durability)**：事务提交后数据持久化到存储</li>
+</ul>
+<h3 id="2-事务关键属性"><a href="#2-事务关键属性" class="headerlink" title="2. 事务关键属性"></a>2. 事务关键属性</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional(</span></span><br><span class="line"><span class="meta">    propagation = Propagation.REQUIRED, // 传播行为</span></span><br><span class="line"><span class="meta">    isolation = Isolation.DEFAULT,      // 隔离级别</span></span><br><span class="line"><span class="meta">    timeout = 30,                       // 超时时间(秒)</span></span><br><span class="line"><span class="meta">    readOnly = false,                   // 只读事务</span></span><br><span class="line"><span class="meta">    rollbackFor = Exception.class,      // 回滚异常</span></span><br><span class="line"><span class="meta">    noRollbackFor = BusinessException.class // 不回滚异常</span></span><br><span class="line"><span class="meta">)</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="二、事务配置方式"><a href="#二、事务配置方式" class="headerlink" title="二、事务配置方式"></a>二、事务配置方式</h2><h3 id="1-声明式事务（推荐）"><a href="#1-声明式事务（推荐）" class="headerlink" title="1. 声明式事务（推荐）"></a>1. 声明式事务（推荐）</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 启动类配置</span></span><br><span class="line"><span class="meta">@EnableTransactionManagement</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AppConfig</span> &#123;</span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> PlatformTransactionManager <span class="title function_">txManager</span><span class="params">(DataSource dataSource)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DataSourceTransactionManager</span>(dataSource);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 业务层使用</span></span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">UserService</span> &#123;</span><br><span class="line">    <span class="meta">@Transactional</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">createUser</span><span class="params">(User user)</span> &#123;</span><br><span class="line">        <span class="comment">// ...</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-编程式事务"><a href="#2-编程式事务" class="headerlink" title="2. 编程式事务"></a>2. 编程式事务</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> TransactionTemplate transactionTemplate;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">OrderService</span><span class="params">(PlatformTransactionManager txManager)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.transactionTemplate = <span class="keyword">new</span> <span class="title class_">TransactionTemplate</span>(txManager);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">processOrder</span><span class="params">()</span> &#123;</span><br><span class="line">        transactionTemplate.execute(status -&gt; &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="comment">// 业务操作...</span></span><br><span class="line">                <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">            &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">                status.setRollbackOnly();</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="三、传播行为详解"><a href="#三、传播行为详解" class="headerlink" title="三、传播行为详解"></a>三、传播行为详解</h2><table>
+<thead>
+<tr>
+<th align="center">传播行为</th>
+<th align="center">值</th>
+<th align="center">特点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><strong>REQUIRED</strong></td>
+<td align="center">默认</td>
+<td align="center">存在事务则加入，否则新建</td>
+</tr>
+<tr>
+<td align="center"><strong>SUPPORTS</strong></td>
+<td align="center">支持</td>
+<td align="center">存在事务则加入，否则非事务运行</td>
+</tr>
+<tr>
+<td align="center"><strong>MANDATORY</strong></td>
+<td align="center">强制</td>
+<td align="center">必须存在事务，否则抛异常</td>
+</tr>
+<tr>
+<td align="center"><strong>REQUIRES_NEW</strong></td>
+<td align="center">新建事务</td>
+<td align="center">挂起当前事务，创建独立新事务</td>
+</tr>
+<tr>
+<td align="center"><strong>NOT_SUPPORTED</strong></td>
+<td align="center">不支持</td>
+<td align="center">挂起当前事务，非事务执行</td>
+</tr>
+<tr>
+<td align="center"><strong>NEVER</strong></td>
+<td align="center">禁止</td>
+<td align="center">必须非事务执行，否则抛异常</td>
+</tr>
+<tr>
+<td align="center"><strong>NESTED</strong></td>
+<td align="center">嵌套</td>
+<td align="center">在当前事务内创建保存点，可部分回滚（需JDBC3.0+驱动）</td>
+</tr>
+</tbody></table>
+<p><strong>嵌套事务示意图</strong>：</p>
+<p><img src="C:\Users\admin\OneDrive\博客文章准备\img\2.png" alt="1"></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="四、隔离级别"><a href="#四、隔离级别" class="headerlink" title="四、隔离级别"></a>四、隔离级别</h2><table>
+<thead>
+<tr>
+<th align="center">隔离级别</th>
+<th align="center">脏读</th>
+<th align="center">不可重复读</th>
+<th align="center">幻读</th>
+<th align="center">适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><strong>READ_UNCOMMITTED</strong></td>
+<td align="center">✓</td>
+<td align="center">✓</td>
+<td align="center">✓</td>
+<td align="center">极少使用</td>
+</tr>
+<tr>
+<td align="center"><strong>READ_COMMITTED</strong></td>
+<td align="center">✗</td>
+<td align="center">✓</td>
+<td align="center">✓</td>
+<td align="center">默认级别（Oracle）</td>
+</tr>
+<tr>
+<td align="center"><strong>REPEATABLE_READ</strong></td>
+<td align="center">✗</td>
+<td align="center">✗</td>
+<td align="center">✓</td>
+<td align="center">默认级别（MySQL）</td>
+</tr>
+<tr>
+<td align="center"><strong>SERIALIZABLE</strong></td>
+<td align="center">✗</td>
+<td align="center">✗</td>
+<td align="center">✗</td>
+<td align="center">高一致性要求场景</td>
+</tr>
+</tbody></table>
+<p><strong>设置方式</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional(isolation = Isolation.REPEATABLE_READ)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">updateAccount</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="五、回滚机制"><a href="#五、回滚机制" class="headerlink" title="五、回滚机制"></a>五、回滚机制</h2><h3 id="1-默认行为"><a href="#1-默认行为" class="headerlink" title="1. 默认行为"></a>1. 默认行为</h3><ul>
+<li>对<code>RuntimeException</code>和<code>Error</code>回滚</li>
+<li>对<code>受检异常(Checked Exception)</code>不回滚</li>
+</ul>
+<h3 id="2-自定义回滚"><a href="#2-自定义回滚" class="headerlink" title="2. 自定义回滚"></a>2. 自定义回滚</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 指定回滚异常</span></span><br><span class="line"><span class="meta">@Transactional(rollbackFor = &#123;IOException.class, SQLException.class&#125;)</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 指定不回滚异常</span></span><br><span class="line"><span class="meta">@Transactional(noRollbackFor = BusinessException.class)</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-手动回滚"><a href="#3-手动回滚" class="headerlink" title="3. 手动回滚"></a>3. 手动回滚</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">update</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 业务操作...</span></span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">        <span class="comment">// 手动标记回滚</span></span><br><span class="line">        TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">ServiceException</span>(<span class="string">&quot;操作失败&quot;</span>, e);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="六、常见错误与解决方案"><a href="#六、常见错误与解决方案" class="headerlink" title="六、常见错误与解决方案"></a>六、常见错误与解决方案</h2><h3 id="1-事务不生效（最常见）"><a href="#1-事务不生效（最常见）" class="headerlink" title="1. 事务不生效（最常见）"></a>1. 事务不生效（最常见）</h3><p><strong>原因</strong>：</p>
+<ul>
+<li>方法非public修饰</li>
+<li>自调用（类内部方法调用）</li>
+<li>异常被捕获未抛出</li>
+<li>数据库引擎不支持（如MyISAM）</li>
+<li>未启用事务管理（缺少<code>@EnableTransactionManagement</code>）</li>
+</ul>
+<p><strong>解决方案</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 正确示例</span></span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">UserService</span> &#123;</span><br><span class="line">    <span class="comment">// 必须通过代理对象调用</span></span><br><span class="line">    <span class="meta">@Autowired</span> </span><br><span class="line">    <span class="keyword">private</span> UserService selfProxy;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">outerMethod</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// 错误：直接调用</span></span><br><span class="line">        <span class="comment">// this.innerMethod(); </span></span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 正确：通过代理对象</span></span><br><span class="line">        selfProxy.innerMethod();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Transactional</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">innerMethod</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// ...</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-长事务问题"><a href="#2-长事务问题" class="headerlink" title="2. 长事务问题"></a>2. 长事务问题</h3><p><strong>现象</strong>：</p>
+<ul>
+<li>数据库连接池耗尽</li>
+<li>锁等待超时</li>
+<li>系统响应缓慢</li>
+</ul>
+<p><strong>优化方案</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional(timeout = 5)</span> <span class="comment">// 设置合理超时</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">processBatch</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 1. 分批处理数据</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; total; i += BATCH_SIZE) &#123;</span><br><span class="line">        processChunk(i, BATCH_SIZE);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 避免在事务中进行IO操作</span></span><br><span class="line">    <span class="comment">// 3. 只读查询使用@Transactional(readOnly=true)</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-事务嵌套混乱"><a href="#3-事务嵌套混乱" class="headerlink" title="3. 事务嵌套混乱"></a>3. 事务嵌套混乱</h3><p><strong>典型错误</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line">    <span class="meta">@Transactional</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">createOrder</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// ...</span></span><br><span class="line">        paymentService.processPayment(); <span class="comment">// REQUIRES_NEW</span></span><br><span class="line">        logService.saveLog();            <span class="comment">// REQUIRED</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">PaymentService</span> &#123;</span><br><span class="line">    <span class="meta">@Transactional(propagation = Propagation.REQUIRES_NEW)</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">processPayment</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// ...</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">LogService</span> &#123;</span><br><span class="line">    <span class="meta">@Transactional</span> <span class="comment">// 默认REQUIRED</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">saveLog</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// ...</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>风险点</strong>：</p>
+<ul>
+<li>REQUIRES_NEW可能因获取新连接导致连接池耗尽</li>
+<li>嵌套事务过多增加数据库压力</li>
+<li>异常传播路径复杂</li>
+</ul>
+<h3 id="4-多数据源事务"><a href="#4-多数据源事务" class="headerlink" title="4. 多数据源事务"></a>4. 多数据源事务</h3><p><strong>解决方案</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TransactionConfig</span> &#123;</span><br><span class="line">    <span class="comment">// 主数据源事务管理器</span></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="meta">@Primary</span></span><br><span class="line">    <span class="keyword">public</span> PlatformTransactionManager <span class="title function_">primaryTxManager</span><span class="params">(DataSource dataSource)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DataSourceTransactionManager</span>(dataSource);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 次数据源事务管理器</span></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> PlatformTransactionManager <span class="title function_">secondaryTxManager</span><span class="params">(</span></span><br><span class="line"><span class="params">        <span class="meta">@Qualifier(&quot;secondaryDataSource&quot;)</span> DataSource dataSource)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DataSourceTransactionManager</span>(dataSource);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 使用指定事务管理器</span></span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CrossService</span> &#123;</span><br><span class="line">    <span class="meta">@Transactional(transactionManager = &quot;secondaryTxManager&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">crossOperation</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// ...</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="七、最佳实践"><a href="#七、最佳实践" class="headerlink" title="七、最佳实践"></a>七、最佳实践</h2><ol>
+<li><p><strong>事务边界</strong>：</p>
+<ul>
+<li>在Service层使用事务，Controller层保持无状态</li>
+<li>单个事务不超过5个SQL操作</li>
+</ul>
+</li>
+<li><p><strong>异常处理</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">businessOperation</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 可能失败的操作</span></span><br><span class="line">    &#125; <span class="keyword">catch</span> (BusinessException e) &#123;</span><br><span class="line">        <span class="comment">// 记录日志但继续执行</span></span><br><span class="line">        log.error(<span class="string">&quot;业务异常&quot;</span>, e);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 其他操作...</span></span><br><span class="line">    <span class="comment">// 不要捕获RuntimeException!</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>性能优化</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 只读查询优化</span></span><br><span class="line"><span class="meta">@Transactional(readOnly = true)</span></span><br><span class="line"><span class="keyword">public</span> List&lt;User&gt; <span class="title function_">getUsers</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> userRepository.findAll();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 短事务原则</span></span><br><span class="line"><span class="meta">@Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 3)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">auditLog</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 快速审计日志记录</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>分布式事务</strong>：</p>
+<ul>
+<li>跨服务调用使用Seata&#x2F;TCC模式</li>
+<li>消息队列保证最终一致性</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">placeOrder</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 1. 本地事务</span></span><br><span class="line">    orderDao.create(order);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 发送MQ消息（事务消息）</span></span><br><span class="line">    rocketMQTemplate.sendMessageInTransaction(...);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ol>
+<h2 id="八、调试与监控"><a href="#八、调试与监控" class="headerlink" title="八、调试与监控"></a>八、调试与监控</h2><h3 id="1-事务日志配置"><a href="#1-事务日志配置" class="headerlink" title="1. 事务日志配置"></a>1. 事务日志配置</h3><figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># application.properties</span></span><br><span class="line"><span class="attr">logging.level.org.springframework.transaction.interceptor</span>=<span class="string">TRACE</span></span><br><span class="line"><span class="attr">logging.level.org.springframework.jdbc.datasource.DataSourceTransactionManager</span>=<span class="string">DEBUG</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-监控指标（Spring-Boot-Actuator）"><a href="#2-监控指标（Spring-Boot-Actuator）" class="headerlink" title="2. 监控指标（Spring Boot Actuator）"></a>2. 监控指标（Spring Boot Actuator）</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">management:</span></span><br><span class="line">  <span class="attr">endpoints:</span></span><br><span class="line">    <span class="attr">web:</span></span><br><span class="line">      <span class="attr">exposure:</span></span><br><span class="line">        <span class="attr">include:</span> <span class="string">transactions</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-事务状态获取"><a href="#3-事务状态获取" class="headerlink" title="3. 事务状态获取"></a>3. 事务状态获取</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Autowired</span></span><br><span class="line"><span class="keyword">private</span> TransactionSynchronizationManager synchronizationManager;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">checkTransaction</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">boolean</span> <span class="variable">active</span> <span class="operator">=</span> synchronizationManager.isActualTransactionActive();</span><br><span class="line">    <span class="type">TransactionStatus</span> <span class="variable">status</span> <span class="operator">=</span> TransactionAspectSupport.currentTransactionStatus();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="总结图：Spring事务全景"><a href="#总结图：Spring事务全景" class="headerlink" title="总结图：Spring事务全景"></a>总结图：Spring事务全景</h2><p><img src="C:\Users\admin\OneDrive\博客文章准备\img\1.png" alt="1"></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>掌握Spring事务管理的关键在于理解事务边界、合理选择传播行为、正确处理异常，并避免常见陷阱。在实际项目中，建议结合APM工具进行事务链路监控，确保系统在高并发场景下的数据一致性。</p>
+</blockquote>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2026/05/08/spring%E4%BA%8B%E5%8A%A1/" data-id="cmox3dh6b00096kr20h06dnj1" data-title="" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2026/05/08/ThreadLocal/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          (no title)
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2026/05/08/pageHelper/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title"></div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/05/">May 2026</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2026/05/08/%E5%BC%82%E5%B8%B8%E7%9A%84%E6%94%BE%E7%BD%AE%E4%BD%8D%E7%BD%AE/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/%E4%B9%B1%E8%B5%B7%E5%85%AB%E7%B3%9F%E7%9A%84%E8%AE%B0%E5%BD%95/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/XML%20%20CDATA/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/ThreadLocal/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/spring%E4%BA%8B%E5%8A%A1/">(no title)</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2026 Aster<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

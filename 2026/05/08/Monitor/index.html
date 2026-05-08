@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>AsterBlog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="当一个Java对象被用作同步锁（例如通过synchronized关键字）时，其背后关联的Monitor（监视器&#x2F;管程）是实现同步的核心。这种关联主要是通过Java对象头中的Mark Word来实现的，整个过程涉及JVM底层精细的数据结构管理和状态转换。 为了让你快速把握全局，下表清晰地展示了对象与Monitor关联的核心机制和不同锁状态下Mark Word内容的变化。    核心组件&amp;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AsterBlog">
+<meta property="og:url" content="http://example.com/2026/05/08/Monitor/index.html">
+<meta property="og:site_name" content="AsterBlog">
+<meta property="og:description" content="当一个Java对象被用作同步锁（例如通过synchronized关键字）时，其背后关联的Monitor（监视器&#x2F;管程）是实现同步的核心。这种关联主要是通过Java对象头中的Mark Word来实现的，整个过程涉及JVM底层精细的数据结构管理和状态转换。 为了让你快速把握全局，下表清晰地展示了对象与Monitor关联的核心机制和不同锁状态下Mark Word内容的变化。    核心组件&amp;">
+<meta property="og:locale" content="zn_CN">
+<meta property="article:published_time" content="2026-05-08T15:50:15.338Z">
+<meta property="article:modified_time" content="2026-01-15T13:29:41.089Z">
+<meta property="article:author" content="Aster">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="AsterBlog" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
+
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">AsterBlog</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS Feed"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="Search"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-Monitor" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2026/05/08/Monitor/" class="article-date">
+  <time class="dt-published" datetime="2026-05-08T15:50:15.338Z" itemprop="datePublished">2026-05-08</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>当一个Java对象被用作同步锁（例如通过<code>synchronized</code>关键字）时，其背后关联的Monitor（监视器&#x2F;管程）是实现同步的核心。这种关联主要是通过Java对象头中的<strong>Mark Word</strong>来实现的，整个过程涉及JVM底层精细的数据结构管理和状态转换。</p>
+<p>为了让你快速把握全局，下表清晰地展示了对象与Monitor关联的核心机制和不同锁状态下Mark Word内容的变化。</p>
+<table>
+<thead>
+<tr>
+<th>核心组件&#x2F;锁状态</th>
+<th>角色与功能</th>
+<th>在关联过程中的关键作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>对象头 (Object Header)</strong></td>
+<td>每个Java对象的一部分，存储对象的元数据。</td>
+<td>关联的基石，其中的Mark Word是关键。</td>
+</tr>
+<tr>
+<td><strong>Mark Word</strong></td>
+<td>对象头的一部分，用于动态存储对象的哈希码、GC年龄、<strong>锁状态标志</strong>等。</td>
+<td>根据锁的竞争情况，存储不同的内容，是<strong>实现关联的“连接点”</strong>。</td>
+</tr>
+<tr>
+<td><strong>Monitor对象 (ObjectMonitor)</strong></td>
+<td>JVM底层（C++）实现的一个数据结构，是真正的同步控制器。</td>
+<td>关联的目标。在重量级锁状态下，由它来管理线程的互斥与协作。</td>
+</tr>
+<tr>
+<td><strong>无锁状态</strong></td>
+<td>对象未被锁定。</td>
+<td>Mark Word存储哈希码、GC分代年龄等信息。锁标志位为<strong>01</strong>。</td>
+</tr>
+<tr>
+<td><strong>偏向锁</strong></td>
+<td>优化同一线程重复获取锁的场景。</td>
+<td>Mark Word存储<strong>偏向线程的ID</strong>。锁标志位变为<strong>101</strong>。</td>
+</tr>
+<tr>
+<td><strong>轻量级锁</strong></td>
+<td>优化多个线程交替执行同步块，没有实际竞争的场景。</td>
+<td>Mark Word存储指向<strong>当前线程栈帧中锁记录</strong>的指针。锁标志位为<strong>00</strong>。</td>
+</tr>
+<tr>
+<td><strong>重量级锁</strong></td>
+<td>处理多线程有激烈竞争的场景。</td>
+<td>Mark Word存储指向<strong>Monitor对象</strong>的指针。锁标志位变为<strong>10</strong>。此时对象与Monitor正式关联。</td>
+</tr>
+</tbody></table>
+<h3 id="🔄-关联过程与锁升级"><a href="#🔄-关联过程与锁升级" class="headerlink" title="🔄 关联过程与锁升级"></a>🔄 关联过程与锁升级</h3><p>对象与Monitor的关联并非一蹴而就，而是随着锁竞争升级而建立的，这个过程是不可逆的：</p>
+<p>1. </p>
+<p>   <strong>初始状态</strong></p>
+<p>   对象刚创建时，处于<strong>无锁</strong>状态。此时Mark Word存储的是对象的哈希码、GC分代年龄等信息。</p>
+<p>2. </p>
+<p>   <strong>首次同步 - 偏向锁</strong></p>
+<p>   当第一个线程T1访问<code>synchronized(obj)</code>代码块时，JVM会尝试将锁置为<strong>偏向锁</strong>模式。它通过CAS操作，将当前线程T1的ID记录到对象的Mark Word中。如果成功，T1再次进入同步块时，只需检查线程ID是否与自己一致，无需复杂同步操作，性能很高。</p>
+<p>3. </p>
+<p>   <strong>出现竞争 - 轻量级锁</strong></p>
+<p>   当另一个线程T2也尝试获取锁时，偏向模式被撤销。JVM会在当前线程的栈帧中创建一个名为<strong>锁记录（Lock Record）</strong> 的空间，然后将对象当前的Mark Word复制到该锁记录中（称为Displaced Mark Word）。接着，JVM再次使用CAS操作，尝试将对象头的Mark Word替换为指向这个锁记录的指针。如果成功，当前线程就获得了<strong>轻量级锁</strong>。这个阶段线程会通过<strong>自旋</strong>（循环尝试）的方式等待锁释放。</p>
+<p>4. </p>
+<p>   <strong>竞争加剧 - 升级为重量级锁</strong></p>
+<p>   如果线程T2的自旋等待期间，持有轻量级锁的线程T1尚未释放锁，或者有更多的线程（如T3）加入竞争，自旋超过一定次数或阈值后，锁就会膨胀为<strong>重量级锁</strong>。此时，JVM会为该对象<strong>生成或关联一个Monitor对象（ObjectMonitor）</strong>，并将对象Mark Word的绝大部分内容更新为<strong>指向该Monitor的指针</strong>，锁标志位也变为10。至此，这个Java对象便与Monitor完成了实质性的关联。后续所有试图获取锁的线程，都会被放入Monitor的<code>_EntryList</code>队列中阻塞等待（状态为<code>BLOCKED</code>）。而已经持有锁的线程若调用<code>wait()</code>方法，则会释放锁并进入Monitor的<code>_WaitSet</code>队列中等待唤醒（状态为<code>WAITING</code>）。</p>
+<h3 id="⚙️-Monitor对象的结构"><a href="#⚙️-Monitor对象的结构" class="headerlink" title="⚙️ Monitor对象的结构"></a>⚙️ Monitor对象的结构</h3><p>这个在重量级锁阶段与对象关联的Monitor（在Hotspot JVM中由C++实现的<code>ObjectMonitor</code>结构体表示），内部维护了几个关键字段来管理线程的同步：</p>
+<p>- </p>
+<p>  <code>_owner</code>：指向当前持有锁的线程。</p>
+<p>- </p>
+<p>  <code>_EntryList</code>：一个队列，存放所有等待获取锁但尚未获取到的线程（状态为<code>BLOCKED</code>）。</p>
+<p>- </p>
+<p>  <code>_WaitSet</code>：一个队列，存放所有调用了<code>wait()</code>方法而等待的线程（状态为<code>WAITING</code>）。</p>
+<p>- </p>
+<p>  <code>_recursions</code>：记录锁的重入次数，因为<code>synchronized</code>是<strong>可重入锁</strong>。</p>
+<h3 id="💎-总结"><a href="#💎-总结" class="headerlink" title="💎 总结"></a>💎 总结</h3><p>简单来说，Java对象通过其对象头中的<strong>Mark Word</strong>作为一张“智能身份证”，根据同步竞争的激烈程度，动态地改变自身存储的信息。当竞争升级到<strong>重量级锁</strong>时，Mark Word中会保存一个<strong>指向Monitor对象的指针</strong>，从而完成关联。这个Monitor则承担起最终协调多线程间互斥与协作的重任。</p>
+<p>这种精巧的设计使得synchronized在无竞争或低竞争时开销极小（偏向锁、轻量级锁），而在高竞争时又能提供强大的同步保障（重量级锁），实现了性能与正确性的良好平衡。</p>
+<p>希望这个解释能帮助你清晰地理解Monitor与对象的关联机制。如果你对锁升级的某个具体细节或Monitor的工作流程有进一步兴趣，我们可以继续深入探讨。</p>
+</blockquote>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2026/05/08/Monitor/" data-id="cmox3dh6700016kr22akr5oja" data-title="" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2026/05/08/mysql%20-case/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          (no title)
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2026/05/08/JWT/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title"></div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/05/">May 2026</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2026/05/08/%E5%BC%82%E5%B8%B8%E7%9A%84%E6%94%BE%E7%BD%AE%E4%BD%8D%E7%BD%AE/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/%E4%B9%B1%E8%B5%B7%E5%85%AB%E7%B3%9F%E7%9A%84%E8%AE%B0%E5%BD%95/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/XML%20%20CDATA/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/ThreadLocal/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/spring%E4%BA%8B%E5%8A%A1/">(no title)</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2026 Aster<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

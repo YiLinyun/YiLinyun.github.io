@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>AsterBlog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="JWT 全面解析与安全实践指南 一、JWT 核心概念1. 本质与结构 • 定义：JSON Web Token（RFC 7519），用于安全传输声明的开放标准  • 格式：Header.Payload.Signature bash 复制 123eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.  # Header（Base64Url）eyJzdWIiOiIxMjM0Iiwib">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AsterBlog">
+<meta property="og:url" content="http://example.com/2026/05/08/JWT/index.html">
+<meta property="og:site_name" content="AsterBlog">
+<meta property="og:description" content="JWT 全面解析与安全实践指南 一、JWT 核心概念1. 本质与结构 • 定义：JSON Web Token（RFC 7519），用于安全传输声明的开放标准  • 格式：Header.Payload.Signature bash 复制 123eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.  # Header（Base64Url）eyJzdWIiOiIxMjM0Iiwib">
+<meta property="og:locale" content="zn_CN">
+<meta property="article:published_time" content="2026-05-08T15:50:15.327Z">
+<meta property="article:modified_time" content="2025-08-14T03:48:51.000Z">
+<meta property="article:author" content="Aster">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="AsterBlog" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
+
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">AsterBlog</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS Feed"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="Search"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-JWT" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2026/05/08/JWT/" class="article-date">
+  <time class="dt-published" datetime="2026-05-08T15:50:15.327Z" itemprop="datePublished">2026-05-08</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h2 id="JWT-全面解析与安全实践指南"><a href="#JWT-全面解析与安全实践指南" class="headerlink" title="JWT 全面解析与安全实践指南"></a>JWT 全面解析与安全实践指南</h2><hr>
+<h3 id="一、JWT-核心概念"><a href="#一、JWT-核心概念" class="headerlink" title="一、JWT 核心概念"></a><strong>一、JWT 核心概念</strong></h3><h4 id="1-本质与结构"><a href="#1-本质与结构" class="headerlink" title="1. 本质与结构"></a>1. 本质与结构</h4><ul>
+<li><p>•</p>
+<p><strong>定义</strong>：JSON Web Token（RFC 7519），用于安全传输声明的开放标准</p>
+</li>
+<li><p>•</p>
+<p><strong>格式</strong>：<code>Header.Payload.Signature</code></p>
+<p>bash</p>
+<p>复制</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.  <span class="comment"># Header（Base64Url）</span></span><br><span class="line">eyJzdWIiOiIxMjM0IiwibmFtZSI6IkpvZGUifQ.  <span class="comment"># Payload（Base64Url）</span></span><br><span class="line">SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c  <span class="comment"># Signature</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th align="center">组成部分</th>
+<th align="center">内容说明</th>
+<th align="center">示例值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><strong>Header</strong></td>
+<td align="center">算法+令牌类型</td>
+<td align="center"><code>&#123;&quot;alg&quot;:&quot;HS256&quot;,&quot;typ&quot;:&quot;JWT&quot;&#125;</code></td>
+</tr>
+<tr>
+<td align="center"><strong>Payload</strong></td>
+<td align="center">声明（Claims）：用户数据+系统声明</td>
+<td align="center"><code>&#123;&quot;sub&quot;:&quot;123&quot;,&quot;role&quot;:&quot;admin&quot;,&quot;exp&quot;:1735689600&#125;</code></td>
+</tr>
+<tr>
+<td align="center"><strong>Signature</strong></td>
+<td align="center">签名：对前两部分的哈希签名</td>
+<td align="center">HMACSHA256(base64Url(Header)+”.”+base64Url(Payload), secret)</td>
+</tr>
+</tbody></table>
+<h4 id="2-核心声明（Claims）"><a href="#2-核心声明（Claims）" class="headerlink" title="2. 核心声明（Claims）"></a>2. 核心声明（Claims）</h4><table>
+<thead>
+<tr>
+<th align="center">声明类型</th>
+<th align="center">描述</th>
+<th align="center">是否强制</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>iss</code></td>
+<td align="center">签发者（Issuer）</td>
+<td align="center">可选</td>
+</tr>
+<tr>
+<td align="center"><code>sub</code></td>
+<td align="center">主题（Subject）</td>
+<td align="center">推荐</td>
+</tr>
+<tr>
+<td align="center"><code>aud</code></td>
+<td align="center">受众（Audience）</td>
+<td align="center">推荐</td>
+</tr>
+<tr>
+<td align="center"><code>exp</code></td>
+<td align="center">过期时间（Expiration Time）</td>
+<td align="center"><strong>必需</strong></td>
+</tr>
+<tr>
+<td align="center"><code>nbf</code></td>
+<td align="center">生效时间（Not Before）</td>
+<td align="center">可选</td>
+</tr>
+<tr>
+<td align="center"><code>iat</code></td>
+<td align="center">签发时间（Issued At）</td>
+<td align="center">推荐</td>
+</tr>
+<tr>
+<td align="center"><code>jti</code></td>
+<td align="center">JWT ID（防重放）</td>
+<td align="center">安全增强</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="二、JWT-工作流程"><a href="#二、JWT-工作流程" class="headerlink" title="二、JWT 工作流程"></a><strong>二、JWT 工作流程</strong></h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="三、Java-实现示例（使用-jjwt-库）"><a href="#三、Java-实现示例（使用-jjwt-库）" class="headerlink" title="三、Java 实现示例（使用 jjwt 库）"></a><strong>三、Java 实现示例（使用 jjwt 库）</strong></h3><h4 id="1-依赖配置（Maven）"><a href="#1-依赖配置（Maven）" class="headerlink" title="1. 依赖配置（Maven）"></a>1. 依赖配置（Maven）</h4><p>xml</p>
+<p>复制</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.jsonwebtoken<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>jjwt-api<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>0.11.5<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.jsonwebtoken<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>jjwt-impl<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>0.11.5<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">scope</span>&gt;</span>runtime<span class="tag">&lt;/<span class="name">scope</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="2-令牌生成"><a href="#2-令牌生成" class="headerlink" title="2. 令牌生成"></a>2. 令牌生成</h4><p>java</p>
+<p>下载</p>
+<p>复制</p>
+<p>运行</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> io.jsonwebtoken.*;</span><br><span class="line"><span class="keyword">import</span> java.security.Key;</span><br><span class="line"><span class="keyword">import</span> java.util.*;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 使用HS256生成密钥（生产环境应从KMS获取）</span></span><br><span class="line"><span class="type">Key</span> <span class="variable">key</span> <span class="operator">=</span> Keys.secretKeyFor(SignatureAlgorithm.HS256); </span><br><span class="line"></span><br><span class="line"><span class="type">String</span> <span class="variable">jwt</span> <span class="operator">=</span> Jwts.builder()</span><br><span class="line">    .setSubject(<span class="string">&quot;user123&quot;</span>)                  <span class="comment">// 用户标识</span></span><br><span class="line">    .claim(<span class="string">&quot;role&quot;</span>, <span class="string">&quot;admin&quot;</span>)                  <span class="comment">// 自定义声明</span></span><br><span class="line">    .setIssuedAt(<span class="keyword">new</span> <span class="title class_">Date</span>())                 <span class="comment">// 签发时间</span></span><br><span class="line">    .setExpiration(<span class="keyword">new</span> <span class="title class_">Date</span>(System.currentTimeMillis() + <span class="number">900_000</span>)) <span class="comment">// 15分钟后过期</span></span><br><span class="line">    .signWith(key)                          <span class="comment">// 签名密钥</span></span><br><span class="line">    .compact();                             <span class="comment">// 生成字符串</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="3-令牌验证"><a href="#3-令牌验证" class="headerlink" title="3. 令牌验证"></a>3. 令牌验证</h4><p>java</p>
+<p>下载</p>
+<p>复制</p>
+<p>运行</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> Claims <span class="title function_">validateToken</span><span class="params">(String jwt)</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> Jwts.parserBuilder()</span><br><span class="line">            .setSigningKey(key)</span><br><span class="line">            .require(<span class="string">&quot;alg&quot;</span>, <span class="string">&quot;HS256&quot;</span>)       <span class="comment">// 关键：强制验证算法</span></span><br><span class="line">            .build()</span><br><span class="line">            .parseClaimsJws(jwt)</span><br><span class="line">            .getBody();</span><br><span class="line">    &#125; <span class="keyword">catch</span> (ExpiredJwtException e) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">SecurityException</span>(<span class="string">&quot;令牌已过期&quot;</span>);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (JwtException e) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">SecurityException</span>(<span class="string">&quot;非法令牌&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="四、安全加固策略"><a href="#四、安全加固策略" class="headerlink" title="四、安全加固策略"></a><strong>四、安全加固策略</strong></h3><h4 id="1-密钥管理（安全基石）"><a href="#1-密钥管理（安全基石）" class="headerlink" title="1. 密钥管理（安全基石）"></a>1. 密钥管理（安全基石）</h4><table>
+<thead>
+<tr>
+<th align="center"><strong>风险</strong></th>
+<th align="center"><strong>防护措施</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><strong>密钥泄露</strong></td>
+<td align="center">🔑 禁止硬编码 → 使用环境变量或密钥管理服务（AWS KMS&#x2F;Hashicorp Vault）</td>
+</tr>
+<tr>
+<td align="center"><strong>密钥强度</strong></td>
+<td align="center">🛡️ HMAC至少256位，RSA至少2048位 → 定期使用<code>Keys.keyPairFor(SignatureAlgorithm.RS256)</code>轮换</td>
+</tr>
+<tr>
+<td align="center"><strong>存储分离</strong></td>
+<td align="center">🗄️ 非对称加密：私钥存储于HSM（硬件安全模块），公钥用于验证</td>
+</tr>
+</tbody></table>
+<h4 id="2-传输层防护"><a href="#2-传输层防护" class="headerlink" title="2. 传输层防护"></a>2. 传输层防护</h4><table>
+<thead>
+<tr>
+<th align="center"><strong>场景</strong></th>
+<th align="center"><strong>最佳实践</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><strong>网络传输</strong></td>
+<td align="center">🔒 强制HTTPS + HSTS头 → 防止中间人攻击</td>
+</tr>
+<tr>
+<td align="center"><strong>浏览器存储</strong></td>
+<td align="center">🍪 使用HttpOnly+Secure+SameSite&#x3D;Lax的Cookie → 防XSS&#x2F;CSRF</td>
+</tr>
+<tr>
+<td align="center"><strong>移动端存储</strong></td>
+<td align="center">📱 Android：<code>EncryptedSharedPreferences</code>&#x2F; iOS：Keychain → 防止本地取证提取</td>
+</tr>
+</tbody></table>
+<h4 id="3-令牌生命周期管理"><a href="#3-令牌生命周期管理" class="headerlink" title="3. 令牌生命周期管理"></a>3. 令牌生命周期管理</h4><table>
+<thead>
+<tr>
+<th align="center"><strong>机制</strong></th>
+<th align="center"><strong>实现方案</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><strong>短期令牌</strong></td>
+<td align="center">⏳ 访问令牌有效期≤15分钟 → 减少泄露后的攻击窗口</td>
+</tr>
+<tr>
+<td align="center"><strong>刷新令牌</strong></td>
+<td align="center">🔄 服务端存储长时效令牌（如7天）并绑定设备指纹 → 仅用于获取新访问令牌</td>
+</tr>
+<tr>
+<td align="center"><strong>令牌吊销</strong></td>
+<td align="center">🚫 登出时添加至Redis黑名单 → 校验时检查<code>jti</code>是否在黑名单中</td>
+</tr>
+</tbody></table>
+<h4 id="4-增强验证策略"><a href="#4-增强验证策略" class="headerlink" title="4. 增强验证策略"></a>4. 增强验证策略</h4><p>java</p>
+<p>下载</p>
+<p>复制</p>
+<p>运行</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 多重验证示例</span></span><br><span class="line">Jwts.parserBuilder()</span><br><span class="line">    .setSigningKey(publicKey)                     <span class="comment">// 公钥验签</span></span><br><span class="line">    .requireAudience(<span class="string">&quot;api-service&quot;</span>)               <span class="comment">// 强制受众验证</span></span><br><span class="line">    .requireIssuer(<span class="string">&quot;auth-server&quot;</span>)                 <span class="comment">// 强制签发者验证</span></span><br><span class="line">    .requireExpiration(Date.from(Instant.now()))  <span class="comment">// 强制过期时间验证</span></span><br><span class="line">    .build()</span><br><span class="line">    .parseClaimsJws(token);</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="五、安全攻击与防御矩阵"><a href="#五、安全攻击与防御矩阵" class="headerlink" title="五、安全攻击与防御矩阵"></a><strong>五、安全攻击与防御矩阵</strong></h3><table>
+<thead>
+<tr>
+<th align="center"><strong>攻击类型</strong></th>
+<th align="center"><strong>原理</strong></th>
+<th align="center"><strong>防护措施</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><strong>签名伪造</strong></td>
+<td align="center">获取密钥后生成任意令牌</td>
+<td align="center">1. 密钥离线存储（HSM） 2. 定期轮换密钥 3. 算法强制验证（<code>.require(&quot;alg&quot;,&quot;RS256&quot;)</code>）</td>
+</tr>
+<tr>
+<td align="center"><strong>令牌窃取</strong></td>
+<td align="center">中间人攻击&#x2F;本地存储窃取</td>
+<td align="center">1. HTTPS强制加密 2. HttpOnly Cookie 3. 移动端安全存储</td>
+</tr>
+<tr>
+<td align="center"><strong>空算法攻击</strong></td>
+<td align="center">篡改Header为<code>&#123;&quot;alg&quot;:&quot;none&quot;&#125;</code></td>
+<td align="center">解析时强制校验算法：<code>.require(&quot;alg&quot;, &quot;RS256&quot;)</code></td>
+</tr>
+<tr>
+<td align="center"><strong>重放攻击</strong></td>
+<td align="center">捕获有效令牌重复使用</td>
+<td align="center">1. 添加<code>jti</code>唯一标识+服务端记录 2. 短有效期+刷新机制</td>
+</tr>
+<tr>
+<td align="center"><strong>暴力破解</strong></td>
+<td align="center">尝试破解弱密钥</td>
+<td align="center">1. 监控验证失败日志 2. 接口限流（如100次&#x2F;分钟）</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="六、JWT-vs-Session-对比"><a href="#六、JWT-vs-Session-对比" class="headerlink" title="六、JWT vs Session 对比"></a><strong>六、JWT vs Session 对比</strong></h3><table>
+<thead>
+<tr>
+<th align="center"><strong>维度</strong></th>
+<th align="center"><strong>JWT</strong></th>
+<th align="center"><strong>Session</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">无状态</td>
+<td align="center">✅ 服务端不存储会话</td>
+<td align="center">❌ 需在服务端存储Session</td>
+</tr>
+<tr>
+<td align="center">扩展性</td>
+<td align="center">✅ 天然支持分布式&#x2F;微服务</td>
+<td align="center">❌ 需Session共享机制（Redis）</td>
+</tr>
+<tr>
+<td align="center">安全性</td>
+<td align="center">⚠️ 依赖密钥管理</td>
+<td align="center">⚠️ 依赖Cookie安全</td>
+</tr>
+<tr>
+<td align="center">性能</td>
+<td align="center">📈 无DB查询（签名验证快）</td>
+<td align="center">📉 每次请求需查询Session存储</td>
+</tr>
+<tr>
+<td align="center">数据存储</td>
+<td align="center">❌ Payload不宜过大（Base64膨胀）</td>
+<td align="center">✅ 可存大量数据</td>
+</tr>
+<tr>
+<td align="center">适用场景</td>
+<td align="center">API服务&#x2F;移动端&#x2F;单点登录</td>
+<td align="center">传统Web应用&#x2F;需服务器状态管理</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="七、高级实践方案"><a href="#七、高级实践方案" class="headerlink" title="七、高级实践方案"></a><strong>七、高级实践方案</strong></h3><h4 id="1-双令牌机制（Access-Token-Refresh-Token）"><a href="#1-双令牌机制（Access-Token-Refresh-Token）" class="headerlink" title="1. 双令牌机制（Access Token + Refresh Token）"></a>1. 双令牌机制（Access Token + Refresh Token）</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h4 id="2-安全增强令牌（JWE）"><a href="#2-安全增强令牌（JWE）" class="headerlink" title="2. 安全增强令牌（JWE）"></a>2. 安全增强令牌（JWE）</h4><p>java</p>
+<p>下载</p>
+<p>复制</p>
+<p>运行</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// JWE = 加密的JWT（防Payload信息泄露）</span></span><br><span class="line"><span class="type">String</span> <span class="variable">jwe</span> <span class="operator">=</span> Jwts.builder()</span><br><span class="line">    .setSubject(<span class="string">&quot;user123&quot;</span>)</span><br><span class="line">    .encryptWith(encryptionKey, JWEAlgorithm.A256GCMKW, EncryptionMethod.A256GCM)</span><br><span class="line">    .compact();</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-Spring-Security-整合"><a href="#3-Spring-Security-整合" class="headerlink" title="3. Spring Security 整合"></a>3. Spring Security 整合</h4><p>java</p>
+<p>下载</p>
+<p>复制</p>
+<p>运行</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="meta">@EnableWebSecurity</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SecurityConfig</span> <span class="keyword">extends</span> <span class="title class_">WebSecurityConfigurerAdapter</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">configure</span><span class="params">(HttpSecurity http)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        http</span><br><span class="line">            .csrf().disable()</span><br><span class="line">            .authorizeRequests()</span><br><span class="line">                .antMatchers(<span class="string">&quot;/login&quot;</span>).permitAll()</span><br><span class="line">                .anyRequest().authenticated()</span><br><span class="line">            .and()</span><br><span class="line">            .addFilter(<span class="keyword">new</span> <span class="title class_">JwtAuthFilter</span>(authenticationManager()));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 自定义JWT过滤器</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">JwtAuthFilter</span> <span class="keyword">extends</span> <span class="title class_">OncePerRequestFilter</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">doFilterInternal</span><span class="params">(HttpServletRequest request, </span></span><br><span class="line"><span class="params">                                    HttpServletResponse response, </span></span><br><span class="line"><span class="params">                                    FilterChain chain)</span> &#123;</span><br><span class="line">        <span class="comment">// 实现JWT校验逻辑</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="八、最佳实践总结"><a href="#八、最佳实践总结" class="headerlink" title="八、最佳实践总结"></a><strong>八、最佳实践总结</strong></h3><ol>
+<li><ol>
+<li></li>
+</ol>
+<p><strong>密钥安全第一</strong>：生产环境使用RSA&#x2F;ECDSA非对称加密，密钥由KMS管理</p>
+</li>
+<li><ol start="2">
+<li></li>
+</ol>
+<p><strong>传输绝对加密</strong>：全站强制HTTPS，禁用HTTP访问</p>
+</li>
+<li><ol start="3">
+<li></li>
+</ol>
+<p><strong>客户端安全存储</strong>：Web用HttpOnly Cookie，App用安全存储引擎</p>
+</li>
+<li><ol start="4">
+<li></li>
+</ol>
+<p><strong>短时效+黑名单</strong>：Access Token≤15分钟，关键操作需二次认证</p>
+</li>
+<li><ol start="5">
+<li></li>
+</ol>
+<p><strong>声明最小化</strong>：不在Payload存储密码、支付信息等敏感数据</p>
+</li>
+<li><ol start="6">
+<li></li>
+</ol>
+<p><strong>日志监控</strong>：实时告警异常JWT验证行为（如高频失败请求）</p>
+</li>
+<li><ol start="7">
+<li></li>
+</ol>
+<p><strong>漏洞防御</strong>：强制验证算法、添加JTI防重放、启用CSP防XSS</p>
+</li>
+</ol>
+<blockquote>
+<p>🔐 <strong>终极准则</strong>：JWT安全是系统性工程，需从<strong>密钥管理</strong>、<strong>传输安全</strong>、<strong>令牌设计</strong>、<strong>基础设施</strong>四个层面构建纵深防御体系。</p>
+</blockquote>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2026/05/08/JWT/" data-id="cmox3dh6400006kr23df99las" data-title="" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2026/05/08/Monitor/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          (no title)
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2026/05/08/git/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title"></div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/05/">May 2026</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2026/05/08/%E5%BC%82%E5%B8%B8%E7%9A%84%E6%94%BE%E7%BD%AE%E4%BD%8D%E7%BD%AE/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/%E4%B9%B1%E8%B5%B7%E5%85%AB%E7%B3%9F%E7%9A%84%E8%AE%B0%E5%BD%95/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/XML%20%20CDATA/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/ThreadLocal/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/08/spring%E4%BA%8B%E5%8A%A1/">(no title)</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2026 Aster<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>
