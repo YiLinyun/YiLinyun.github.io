@@ -1,0 +1,223 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口 | Asteryn</title><meta name="author" content="Asteryn"><meta name="copyright" content="Asteryn"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f7fbfa"><meta name="description" content="502 事故初期，我们能看到 FCM 错误日志、Nginx 超时和 Druid 连接池满载，却回答不了最关键的问题：究竟是哪个接口慢、慢到什么程度、什么时候开始变慢？ 临时分析 Nginx access log 可以还原过去，但无法持续观察平均耗时、P95、吞吐量和状态码分布。因此我在项目中接入了 Spring Boot Actuator 和 Micrometer，由 Prometheus 定时拉">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口">
+<meta property="og:url" content="http://example.com/2026/07/14/502-incident-03-observability/index.html">
+<meta property="og:site_name" content="Asteryn">
+<meta property="og:description" content="502 事故初期，我们能看到 FCM 错误日志、Nginx 超时和 Druid 连接池满载，却回答不了最关键的问题：究竟是哪个接口慢、慢到什么程度、什么时候开始变慢？ 临时分析 Nginx access log 可以还原过去，但无法持续观察平均耗时、P95、吞吐量和状态码分布。因此我在项目中接入了 Spring Boot Actuator 和 Micrometer，由 Prometheus 定时拉">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80">
+<meta property="article:published_time" content="2026-07-14T12:20:00.000Z">
+<meta property="article:modified_time" content="2026-07-14T09:21:45.451Z">
+<meta property="article:author" content="Asteryn">
+<meta property="article:tag" content="Spring Boot Actuator">
+<meta property="article:tag" content="Prometheus">
+<meta property="article:tag" content="Grafana">
+<meta property="article:tag" content="可观测性">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口",
+  "url": "http://example.com/2026/07/14/502-incident-03-observability/",
+  "image": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80",
+  "datePublished": "2026-07-14T12:20:00.000Z",
+  "dateModified": "2026-07-14T09:21:45.451Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Asteryn",
+      "url": "http://example.com"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/astery-avatar-starry.svg"><link rel="canonical" href="http://example.com/2026/07/14/502-incident-03-observability/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5-b1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#15181f')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f7fbfa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":150,"languages":{"author":"作者: Asteryn","link":"链接: ","source":"来源: Asteryn","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'medium_zoom',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link rel="stylesheet" href="/css/astery-custom.css"><meta name="generator" content="Hexo 7.3.0"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/astery-bg.svg);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/astery-avatar-starry.svg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/ loading='lazy'></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">7</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header" style="background-image: url(https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="/img/astery-avatar-starry.svg" alt="Logo" loading='lazy'><span class="site-name">Asteryn</span></a><a class="nav-page-title" href="/"><span class="site-name">从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-14T12:20:00.000Z" title="发表于 2026-07-14 20:20:00">2026-07-14</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-14T09:21:45.451Z" title="更新于 2026-07-14 17:21:45">2026-07-14</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E6%9E%B6%E6%9E%84/">后端架构</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><p>502 事故初期，我们能看到 FCM 错误日志、Nginx 超时和 Druid 连接池满载，却回答不了最关键的问题：究竟是哪个接口慢、慢到什么程度、什么时候开始变慢？</p>
+<p>临时分析 Nginx access log 可以还原过去，但无法持续观察平均耗时、P95、吞吐量和状态码分布。因此我在项目中接入了 Spring Boot Actuator 和 Micrometer，由 Prometheus 定时拉取，由 Grafana 展示。</p>
+<p>平台上线后的第一个明确结论是：SA 风控接口平均耗时超过 2 秒，P95 波动很大，峰值能达到 90 秒。此前“数据库连接池为什么长期满载”终于有了可定位的入口。</p>
+<h2 id="一、为什么只看平均值不够"><a href="#一、为什么只看平均值不够" class="headerlink" title="一、为什么只看平均值不够"></a>一、为什么只看平均值不够</h2><p>假设 100 个请求里有 95 个耗时 100ms，另外 5 个耗时 30 秒，平均值已经很难描述用户体验。更重要的是，那 5 个长请求可能长期占用线程、数据库连接或其他依赖资源，最终拖慢更多请求。</p>
+<p>所以接口监控至少要同时看：</p>
+<ul>
+<li>QPS：流量是否突然增加。</li>
+<li>平均耗时：整体趋势是否恶化。</li>
+<li>P95&#x2F;P99：尾部慢请求是否失控。</li>
+<li>4xx&#x2F;5xx：失败是否集中在某个 URI。</li>
+<li>JVM、线程池和数据库连接池：慢请求是否已经传导到资源层。</li>
+</ul>
+<p>这次事故中，真正有诊断价值的是 P95，而不是“服务还活着”这一事实。</p>
+<h2 id="二、Java-侧接入-Actuator-与-Prometheus"><a href="#二、Java-侧接入-Actuator-与-Prometheus" class="headerlink" title="二、Java 侧接入 Actuator 与 Prometheus"></a>二、Java 侧接入 Actuator 与 Prometheus</h2><p>提交 <code>5a6a7855</code> 在 <code>videoTuber-admin</code> 中加入两个依赖：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-starter-actuator<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.micrometer<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>micrometer-registry-prometheus<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>初始配置暴露了健康检查、指标和 Prometheus 端点，并为 HTTP 请求开启直方图、分位数与 SLO 桶：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">management:</span></span><br><span class="line">  <span class="attr">endpoints:</span></span><br><span class="line">    <span class="attr">web:</span></span><br><span class="line">      <span class="attr">exposure:</span></span><br><span class="line">        <span class="attr">include:</span> <span class="string">health,info,metrics,prometheus</span></span><br><span class="line">  <span class="attr">metrics:</span></span><br><span class="line">    <span class="attr">tags:</span></span><br><span class="line">      <span class="attr">application:</span> <span class="string">$&#123;spring.application.name:video-tuber-admin&#125;</span></span><br><span class="line">    <span class="attr">distribution:</span></span><br><span class="line">      <span class="attr">percentiles-histogram:</span></span><br><span class="line">        <span class="attr">http.server.requests:</span> <span class="literal">true</span></span><br><span class="line">      <span class="attr">percentiles:</span></span><br><span class="line">        <span class="attr">http.server.requests:</span> <span class="number">0.5</span><span class="string">,0.9,0.95,0.99</span></span><br><span class="line">      <span class="attr">slo:</span></span><br><span class="line">        <span class="attr">http.server.requests:</span> <span class="string">200ms,500ms,1s,3s,10s</span></span><br></pre></td></tr></table></figure>
+
+<p>第二天的提交 <code>50b964e0</code> 又把这段本地配置移除，改由配置中心统一管理。这样测试、生产可以使用不同的端点暴露范围和采样策略，也避免每次调整监控参数都重新打包。</p>
+<p>安全配置中放行了 <code>/actuator/prometheus</code> 等采集端点。这里要特别注意：Spring Security 放行只解决 Prometheus 能否访问，不代表这些指标应该暴露给公网。生产环境还应通过安全组、Nginx allowlist 或独立管理端口，把访问范围限制在监控网络内。</p>
+<h2 id="三、Prometheus-如何拉取两台实例"><a href="#三、Prometheus-如何拉取两台实例" class="headerlink" title="三、Prometheus 如何拉取两台实例"></a>三、Prometheus 如何拉取两台实例</h2><p>Prometheus 采用 pull 模式，分别抓取两台 Java 服务：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">scrape_configs:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">job_name:</span> <span class="string">video-tuber-admin</span></span><br><span class="line">    <span class="attr">metrics_path:</span> <span class="string">/actuator/prometheus</span></span><br><span class="line">    <span class="attr">scrape_interval:</span> <span class="string">15s</span></span><br><span class="line">    <span class="attr">static_configs:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">targets:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="number">10.0</span><span class="number">.0</span><span class="number">.11</span><span class="string">:8080</span></span><br><span class="line">          <span class="bullet">-</span> <span class="number">10.0</span><span class="number">.0</span><span class="number">.12</span><span class="string">:8080</span></span><br></pre></td></tr></table></figure>
+
+<p>给指标加上 <code>application</code> 标签后，同一套 Prometheus 中即使有多个 Spring Boot 服务，也能按应用过滤。<code>instance</code> 标签则保留节点维度，便于判断是某一台机器异常，还是两个节点同时变慢。</p>
+<p>整体链路如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">flowchart LR</span><br><span class="line">    A[&quot;Spring Boot API&quot;] --&gt; B[&quot;Actuator + Micrometer&quot;]</span><br><span class="line">    B --&gt; C[&quot;/actuator/prometheus&quot;]</span><br><span class="line">    C --&gt;|&quot;每 15 秒拉取&quot;| D[&quot;Prometheus&quot;]</span><br><span class="line">    D --&gt; E[&quot;Grafana Dashboard&quot;]</span><br><span class="line">    D --&gt; F[&quot;告警规则&quot;]</span><br></pre></td></tr></table></figure>
+
+<h2 id="四、Grafana-面板里最有用的几条查询"><a href="#四、Grafana-面板里最有用的几条查询" class="headerlink" title="四、Grafana 面板里最有用的几条查询"></a>四、Grafana 面板里最有用的几条查询</h2><p>Micrometer 导出的具体标签会随 Spring Boot 版本和 URI 归一化结果略有不同，先在 Prometheus 中检查实际指标名和 <code>uri</code> 标签。常见查询可以这样写。</p>
+<h3 id="1-每个接口的-QPS"><a href="#1-每个接口的-QPS" class="headerlink" title="1. 每个接口的 QPS"></a>1. 每个接口的 QPS</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">sum by (uri) (</span><br><span class="line">  rate(http_server_requests_seconds_count&#123;</span><br><span class="line">    application=&quot;video-tuber-admin&quot;</span><br><span class="line">  &#125;[5m])</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-每个接口的平均耗时"><a href="#2-每个接口的平均耗时" class="headerlink" title="2. 每个接口的平均耗时"></a>2. 每个接口的平均耗时</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">sum by (uri) (</span><br><span class="line">  rate(http_server_requests_seconds_sum&#123;</span><br><span class="line">    application=&quot;video-tuber-admin&quot;</span><br><span class="line">  &#125;[5m])</span><br><span class="line">)</span><br><span class="line">/</span><br><span class="line">sum by (uri) (</span><br><span class="line">  rate(http_server_requests_seconds_count&#123;</span><br><span class="line">    application=&quot;video-tuber-admin&quot;</span><br><span class="line">  &#125;[5m])</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-P95-耗时"><a href="#3-P95-耗时" class="headerlink" title="3. P95 耗时"></a>3. P95 耗时</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">histogram_quantile(</span><br><span class="line">  0.95,</span><br><span class="line">  sum by (le, uri) (</span><br><span class="line">    rate(http_server_requests_seconds_bucket&#123;</span><br><span class="line">      application=&quot;video-tuber-admin&quot;</span><br><span class="line">    &#125;[5m])</span><br><span class="line">  )</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-5xx-比例"><a href="#4-5xx-比例" class="headerlink" title="4. 5xx 比例"></a>4. 5xx 比例</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sum(rate(http_server_requests_seconds_count&#123;status=~&quot;5..&quot;&#125;[5m]))</span><br><span class="line">/</span><br><span class="line">sum(rate(http_server_requests_seconds_count[5m]))</span><br></pre></td></tr></table></figure>
+
+<p>由于项目配置了 <code>200ms、500ms、1s、3s、10s</code> 的 SLO 桶，还可以直接观察请求落在哪个耗时区间。比单独展示一个 P95 数字更容易看出性能退化是逐渐发生，还是突然出现极端长尾。</p>
+<h2 id="五、监控如何把排查从“猜资源”变成“找接口”"><a href="#五、监控如何把排查从“猜资源”变成“找接口”" class="headerlink" title="五、监控如何把排查从“猜资源”变成“找接口”"></a>五、监控如何把排查从“猜资源”变成“找接口”</h2><p>平台上线前，排查方向主要围绕 MySQL 连接池、Java 线程和 Redis 超时。它们确实可能成为瓶颈，但仅看资源层无法回答是谁在消耗资源。</p>
+<p>平台上线后，SA 接口的数据非常突出：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">平均耗时：2s+</span><br><span class="line">P95：起伏明显</span><br><span class="line">P95 峰值：约 90s</span><br></pre></td></tr></table></figure>
+
+<p>于是排查可以从 SA 入口继续下钻：每次请求写了哪些表、缓存命中后是否仍查库、IP 是否重复解析、第三方 ipinfo 花了多久、风控历史是否重复查询、老版本兼容逻辑是否仍在执行。</p>
+<p>这就是接口指标的价值：它不直接告诉我们哪一行代码错了，但能把几十个“可能有问题的资源”收敛到一个具体调用链。</p>
+<h2 id="六、这套监控还缺什么"><a href="#六、这套监控还缺什么" class="headerlink" title="六、这套监控还缺什么"></a>六、这套监控还缺什么</h2><p>Actuator 的 HTTP 指标只能看到入口总耗时。要进一步区分“数据库慢”“Redis 慢”还是“ipinfo 慢”，还需要补充：</p>
+<ul>
+<li>Druid 活跃连接、等待线程数和获取连接耗时。</li>
+<li>MySQL 慢查询与 SQL digest。</li>
+<li>Redis 命令耗时和连接池等待。</li>
+<li>ipinfo 客户端请求次数、超时数与耗时直方图。</li>
+<li>RocketMQ 堆积量和 FCM 限流重投次数。</li>
+<li>统一 traceId，串起 Nginx、Java、SQL 和外部 HTTP 调用。</li>
+</ul>
+<p>特别是 SA 新用户在 Redis 没有 ipinfo 缓存时，必须访问外部服务。测试中这一段高延迟可超过 300ms。把外部依赖单独计时后，才能分清“SA 代码退化”和“第三方网络波动”。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这次接入没有创造复杂的监控体系，只完成了一条最小闭环：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Spring Boot 产出指标</span><br><span class="line">→ Prometheus 定时存储</span><br><span class="line">→ Grafana 展示 URI 级 QPS、平均值和 P95</span><br><span class="line">→ 根据慢接口回到代码优化</span><br></pre></td></tr></table></figure>
+
+<p>它带来的最大变化，是以后再出现连接池满载时，不必先猜 FCM、JVM 还是 Redis。先看哪个接口的流量和尾延迟同时升高，再沿着这条链路检查数据库和外部依赖，排查会快得多。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="http://example.com">Asteryn</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="http://example.com/2026/07/14/502-incident-03-observability/">http://example.com/2026/07/14/502-incident-03-observability/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="http://example.com" target="_blank">Asteryn</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Spring-Boot-Actuator/">Spring Boot Actuator</a><a class="post-meta__tags" href="/tags/Prometheus/">Prometheus</a><a class="post-meta__tags" href="/tags/Grafana/">Grafana</a><a class="post-meta__tags" href="/tags/%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/">可观测性</a></div><div class="post-share"><div class="social-share" data-image="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/07/14/502-incident-04-sa-optimization/" title="SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身"><img class="cover" src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post" loading='lazy'><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身</div></div><div class="info-2"><div class="info-item-1">Prometheus 和 Grafana 上线后，SA 风控接口成了最明显的慢接口：平均耗时超过 2 秒，P95 波动很大，极端时达到 90 秒。初步优化完成后，平均耗时降到 100ms 以下，P95 稳定在 300ms 左右。 这次优化没有依赖某个神奇参数，而是清理了一条长期“只增不减”的调用链：废弃表仍在写、同一个 IP 被不同工具重复解析、缓存命中后仍查库、风控历史为了判断是否变化再查一次数据库、老用户在解析和判定结束时各更...</div></div></div></a><a class="pagination-related" href="/2026/07/14/502-incident-02-fcm-throttling/" title="双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理"><img class="cover" src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post" loading='lazy'><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理</div></div><div class="info-2"><div class="info-item-1">在 502 事故发生后的第一轮止血中，我给 FCM 消费链路增加了全局限流。虽然事后证明 FCM 不是 502 的直接根因，但这个补丁仍然解决了两个真实问题：双实例消费没有总量控制，以及大量没有推荐视频的用户被反复投递。 补丁对应的核心提交是： 1234de4082d7  FCM 消费者添加限流控制56c25d04  二次投递前校验是否有推荐视频7880c8dd  token 被清理的用户不再二次投递9bbdf7c9  非 B 用...</div></div></div></a></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/astery-avatar-starry.svg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/ loading='lazy'></div><div class="author-info-name">Asteryn</div><div class="author-info-description">后端工程与系统设计笔记</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">7</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/YiLinyun"><i class="fab fa-github"></i><span>GitHub</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">Asteryn 正在整理后端架构、活动系统、消息链路与工程实践。</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E5%8F%AA%E7%9C%8B%E5%B9%B3%E5%9D%87%E5%80%BC%E4%B8%8D%E5%A4%9F"><span class="toc-number">1.</span> <span class="toc-text">一、为什么只看平均值不够</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81Java-%E4%BE%A7%E6%8E%A5%E5%85%A5-Actuator-%E4%B8%8E-Prometheus"><span class="toc-number">2.</span> <span class="toc-text">二、Java 侧接入 Actuator 与 Prometheus</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81Prometheus-%E5%A6%82%E4%BD%95%E6%8B%89%E5%8F%96%E4%B8%A4%E5%8F%B0%E5%AE%9E%E4%BE%8B"><span class="toc-number">3.</span> <span class="toc-text">三、Prometheus 如何拉取两台实例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81Grafana-%E9%9D%A2%E6%9D%BF%E9%87%8C%E6%9C%80%E6%9C%89%E7%94%A8%E7%9A%84%E5%87%A0%E6%9D%A1%E6%9F%A5%E8%AF%A2"><span class="toc-number">4.</span> <span class="toc-text">四、Grafana 面板里最有用的几条查询</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E6%AF%8F%E4%B8%AA%E6%8E%A5%E5%8F%A3%E7%9A%84-QPS"><span class="toc-number">4.1.</span> <span class="toc-text">1. 每个接口的 QPS</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E6%AF%8F%E4%B8%AA%E6%8E%A5%E5%8F%A3%E7%9A%84%E5%B9%B3%E5%9D%87%E8%80%97%E6%97%B6"><span class="toc-number">4.2.</span> <span class="toc-text">2. 每个接口的平均耗时</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-P95-%E8%80%97%E6%97%B6"><span class="toc-number">4.3.</span> <span class="toc-text">3. P95 耗时</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-5xx-%E6%AF%94%E4%BE%8B"><span class="toc-number">4.4.</span> <span class="toc-text">4. 5xx 比例</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E7%9B%91%E6%8E%A7%E5%A6%82%E4%BD%95%E6%8A%8A%E6%8E%92%E6%9F%A5%E4%BB%8E%E2%80%9C%E7%8C%9C%E8%B5%84%E6%BA%90%E2%80%9D%E5%8F%98%E6%88%90%E2%80%9C%E6%89%BE%E6%8E%A5%E5%8F%A3%E2%80%9D"><span class="toc-number">5.</span> <span class="toc-text">五、监控如何把排查从“猜资源”变成“找接口”</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E8%BF%99%E5%A5%97%E7%9B%91%E6%8E%A7%E8%BF%98%E7%BC%BA%E4%BB%80%E4%B9%88"><span class="toc-number">6.</span> <span class="toc-text">六、这套监控还缺什么</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">7.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/14/502-incident-04-sa-optimization/" title="SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身"><img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/07/14/502-incident-04-sa-optimization/" title="SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身">SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身</a><time datetime="2026-07-14T12:30:00.000Z" title="发表于 2026-07-14 20:30:00">2026-07-14</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/14/502-incident-03-observability/" title="从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口"><img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/07/14/502-incident-03-observability/" title="从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口">从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口</a><time datetime="2026-07-14T12:20:00.000Z" title="发表于 2026-07-14 20:20:00">2026-07-14</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/14/502-incident-02-fcm-throttling/" title="双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理"><img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/07/14/502-incident-02-fcm-throttling/" title="双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理">双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理</a><time datetime="2026-07-14T12:10:00.000Z" title="发表于 2026-07-14 20:10:00">2026-07-14</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/14/502-incident-01-from-fcm-to-nginx/" title="一次大面积 502 事故复盘：从 FCM 日志误导到 Nginx 摘除全部节点"><img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="一次大面积 502 事故复盘：从 FCM 日志误导到 Nginx 摘除全部节点"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/07/14/502-incident-01-from-fcm-to-nginx/" title="一次大面积 502 事故复盘：从 FCM 日志误导到 Nginx 摘除全部节点">一次大面积 502 事故复盘：从 FCM 日志误导到 Nginx 摘除全部节点</a><time datetime="2026-07-14T12:00:00.000Z" title="发表于 2026-07-14 20:00:00">2026-07-14</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/06/17/spring-boot-bean-conflict-online-troubleshooting/" title="Spring Boot 线上启动报 Bean 冲突的一次排查记录"><img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring Boot 线上启动报 Bean 冲突的一次排查记录"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/06/17/spring-boot-bean-conflict-online-troubleshooting/" title="Spring Boot 线上启动报 Bean 冲突的一次排查记录">Spring Boot 线上启动报 Bean 冲突的一次排查记录</a><time datetime="2026-06-17T03:30:00.000Z" title="发表于 2026-06-17 11:30:00">2026-06-17</time></div></div></div></div></div></div></main><footer id="footer" style="background-image: url(https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=2200&amp;q=80);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By Asteryn</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5-b1</a></span></div><div class="footer_custom_text">用工程笔记保存思考的上下文。</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5-b1"></script><script src="/js/main.js?v=5.5.5-b1"></script><script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.1.0/dist/medium-zoom.min.js"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
