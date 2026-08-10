@@ -1,0 +1,752 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录 | Asteryn</title><meta name="author" content="Asteryn"><meta name="copyright" content="Asteryn"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f7fbfa"><meta name="description" content="记录一次 FCM 推送触达率异常的排查过程：每天发送 5 万多条消息，Firebase Console 的 Received 却只有 300 多。排查 Token、Priority、通知权限、客户端埋点均无果，最终通过 BigQuery 的 MESSAGE_DELIVERED 发现实际送达量达到 3.65 万，真正的问题不是 FCM，而是我们误解了控制台指标。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录">
+<meta property="og:url" content="http://example.com/2026/08/10/fcm-received-vs-message-delivered/index.html">
+<meta property="og:site_name" content="Asteryn">
+<meta property="og:description" content="记录一次 FCM 推送触达率异常的排查过程：每天发送 5 万多条消息，Firebase Console 的 Received 却只有 300 多。排查 Token、Priority、通知权限、客户端埋点均无果，最终通过 BigQuery 的 MESSAGE_DELIVERED 发现实际送达量达到 3.65 万，真正的问题不是 FCM，而是我们误解了控制台指标。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80">
+<meta property="article:published_time" content="2026-08-10T08:55:00.000Z">
+<meta property="article:modified_time" content="2026-08-10T08:59:16.205Z">
+<meta property="article:author" content="Asteryn">
+<meta property="article:tag" content="FCM">
+<meta property="article:tag" content="Firebase">
+<meta property="article:tag" content="Android">
+<meta property="article:tag" content="BigQuery">
+<meta property="article:tag" content="Push Notification">
+<meta property="article:tag" content="消息推送">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录",
+  "url": "http://example.com/2026/08/10/fcm-received-vs-message-delivered/",
+  "image": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80",
+  "datePublished": "2026-08-10T08:55:00.000Z",
+  "dateModified": "2026-08-10T08:59:16.205Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Asteryn",
+      "url": "http://example.com"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/astery-avatar-starry.svg"><link rel="canonical" href="http://example.com/2026/08/10/fcm-received-vs-message-delivered/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5-b1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#15181f')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f7fbfa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":150,"languages":{"author":"作者: Asteryn","link":"链接: ","source":"来源: Asteryn","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'medium_zoom',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link rel="stylesheet" href="/css/astery-custom.css"><meta name="generator" content="Hexo 7.3.0"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/astery-bg.svg);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/astery-avatar-starry.svg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/ loading='lazy'></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">9</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">28</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header" style="background-image: url(https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="/img/astery-avatar-starry.svg" alt="Logo" loading='lazy'><span class="site-name">Asteryn</span></a><a class="nav-page-title" href="/"><span class="site-name">Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-10T08:55:00.000Z" title="发表于 2026-08-10 16:55:00">2026-08-10</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-08-10T08:59:16.205Z" title="更新于 2026-08-10 16:59:16">2026-08-10</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Android/">Android</a><i class="fas fa-angle-right post-meta-separator"></i><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Android/Firebase/">Firebase</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><p>最近终于把一个困扰我们很久的 FCM 推送问题搞清楚了。</p>
+<p>整个问题最开始看起来非常严重：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">每天 FCM 推送：50000+</span><br><span class="line">Firebase Console Received：300+</span><br></pre></td></tr></table></figure>
+
+<p>如果直接按照 Firebase Console 中的 <code>Received</code> 来理解：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">300 / 50000 ≈ 0.6%</span><br></pre></td></tr></table></figure>
+
+<p>也就是说，我们的 FCM 推送触达率甚至不到 **1%**。</p>
+<p>这已经不是“触达率有点低”的问题了，而是接近：</p>
+<blockquote>
+<p>推送系统基本不可用。</p>
+</blockquote>
+<p>于是我们围绕 FCM、Android、Token、通知权限、后台限制等方向排查了很长时间。</p>
+<p>期间甚至已经出现了非常明显的数据矛盾：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Firebase Received：300+</span><br><span class="line">我们自己的通知点击埋点：500+</span><br></pre></td></tr></table></figure>
+
+<p>但即便这样，我们依然首先怀疑的是：</p>
+<blockquote>
+<p>是不是自己的埋点错了？</p>
+</blockquote>
+<p>而不是：</p>
+<blockquote>
+<p>Firebase Console 这个 Received 到底是不是我们理解的“设备触达”？</p>
+</blockquote>
+<p>直到最后开启了 Firebase Cloud Messaging 的 BigQuery 数据导出。</p>
+<p>查询之后发现：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_DELIVERED：36500+</span><br></pre></td></tr></table></figure>
+
+<p>到这里才终于确定：</p>
+<p><strong>我们的 FCM 推送本身根本没有之前想象中那么严重的问题。</strong></p>
+<p>真正把整个排查方向带偏的，是 Firebase Console 中的 <code>Received</code> 指标。</p>
+<p>这篇文章记录一下整个踩坑过程。</p>
+<span id="more"></span>
+
+<h1 id="一、问题现象"><a href="#一、问题现象" class="headerlink" title="一、问题现象"></a>一、问题现象</h1><p>我们的 App 使用 Firebase Cloud Messaging，也就是 FCM 进行消息推送。</p>
+<p>服务端每天发送量大约：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">50000+</span><br></pre></td></tr></table></figure>
+
+<p>但 Firebase Console 中看到的 <code>Received</code> 非常低：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">300+</span><br></pre></td></tr></table></figure>
+
+<p>从数据上看：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">发送：50000+</span><br><span class="line">Received：300+</span><br></pre></td></tr></table></figure>
+
+<p>粗略计算：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">300 / 50000 ≈ 0.6%</span><br></pre></td></tr></table></figure>
+
+<p>触达率不到 1%。</p>
+<p>当时我们对 <code>Received</code> 的理解非常直接：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Sent</span><br><span class="line">    ↓</span><br><span class="line">FCM</span><br><span class="line">    ↓</span><br><span class="line">Received</span><br><span class="line">    ↓</span><br><span class="line">用户设备</span><br></pre></td></tr></table></figure>
+
+<p>也就是说，我们默认：</p>
+<blockquote>
+<p><code>Received</code> 基本就代表消息已经触达到设备。</p>
+</blockquote>
+<p>既然 5 万多条消息只有 300 多条 Received，那么问题自然就变成：</p>
+<blockquote>
+<p>为什么 FCM 有 99% 左右的消息没有成功送到用户设备？</p>
+</blockquote>
+<p>然后整个排查就从这个前提出发了。</p>
+<hr>
+<h1 id="二、第一轮排查：是不是-Token-有问题？"><a href="#二、第一轮排查：是不是-Token-有问题？" class="headerlink" title="二、第一轮排查：是不是 Token 有问题？"></a>二、第一轮排查：是不是 Token 有问题？</h1><p>首先怀疑的是 FCM Token。</p>
+<p>这是推送问题里比较常见的一个方向。</p>
+<p>比如：</p>
+<ul>
+<li>用户卸载 App</li>
+<li>Token 已经失效</li>
+<li>Token 刷新后服务端没有及时更新</li>
+<li>数据库中存在大量历史 Token</li>
+<li>Token 与用户绑定关系异常</li>
+</ul>
+<p>服务端也重点关注了类似：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">UNREGISTERED</span><br><span class="line">INVALID_ARGUMENT</span><br><span class="line">QUOTA_EXCEEDED</span><br><span class="line">UNAVAILABLE</span><br></pre></td></tr></table></figure>
+
+<p>等错误。</p>
+<p>但实际排查结果并没有发现足以解释这个数据的问题。</p>
+<p>如果每天发送 5 万条消息，真正只有 300 多条能到设备，那么理论上服务端应该能观察到非常明显的大规模异常。</p>
+<p>但实际上并没有。</p>
+<p>FCM API 的发送结果整体看起来是正常的。</p>
+<p>于是继续往 Android 客户端方向排查。</p>
+<hr>
+<h1 id="三、怀疑-Android-后台限制"><a href="#三、怀疑-Android-后台限制" class="headerlink" title="三、怀疑 Android 后台限制"></a>三、怀疑 Android 后台限制</h1><p>FCM 在 Android 上会受到不少系统因素影响，例如：</p>
+<ul>
+<li>Doze</li>
+<li>后台运行限制</li>
+<li>省电策略</li>
+<li>App 进程被杀</li>
+<li>网络状态</li>
+<li>厂商 ROM 后台限制</li>
+</ul>
+<p>于是我们开始怀疑：</p>
+<blockquote>
+<p>会不会消息虽然成功提交给 FCM，但是因为 Android 系统的后台限制，大量消息没有及时送达到设备？</p>
+</blockquote>
+<p>尤其是 Android 各种后台策略一直都是消息推送里比较让人头疼的问题。</p>
+<p>所以这一阶段重点检查了：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">FCM</span><br><span class="line"> ↓</span><br><span class="line">Android 系统</span><br><span class="line"> ↓</span><br><span class="line">App</span><br></pre></td></tr></table></figure>
+
+<p>这一段链路。</p>
+<hr>
+<h1 id="四、将消息-Priority-调整为-HIGH"><a href="#四、将消息-Priority-调整为-HIGH" class="headerlink" title="四、将消息 Priority 调整为 HIGH"></a>四、将消息 Priority 调整为 HIGH</h1><p>为了尽可能减少后台限制导致的消息延迟，我们把 Android 消息优先级调整成了：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;android&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;priority&quot;</span><span class="punctuation">:</span> <span class="string">&quot;high&quot;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>也就是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">HIGH</span><br></pre></td></tr></table></figure>
+
+<p>当时的预期是：</p>
+<p>如果大量消息真的是因为 Doze 或后台调度导致没有及时下发，那么调整 Priority 之后，Firebase Console 中的 <code>Received</code> 应该至少会有一定程度的改善。</p>
+<p>结果：</p>
+<p><strong>几乎没有变化。</strong></p>
+<p>还是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">发送：50000+</span><br><span class="line">Received：300+</span><br></pre></td></tr></table></figure>
+
+<p>到这里问题已经开始变得奇怪了。</p>
+<p>但我们当时的第一反应依然是：</p>
+<blockquote>
+<p>肯定还有某个地方没有排查到。</p>
+</blockquote>
+<p>而不是 Firebase 的统计有问题。</p>
+<hr>
+<h1 id="五、开始自己做埋点验证"><a href="#五、开始自己做埋点验证" class="headerlink" title="五、开始自己做埋点验证"></a>五、开始自己做埋点验证</h1><p>因为 Firebase Console 显示出来的触达率实在太离谱，我们决定不再只看 Firebase，而是自己增加客户端埋点。</p>
+<p>主要增加了两组数据。</p>
+<hr>
+<h2 id="1-统计目标用户的通知权限"><a href="#1-统计目标用户的通知权限" class="headerlink" title="1. 统计目标用户的通知权限"></a>1. 统计目标用户的通知权限</h2><p>第一组统计：</p>
+<blockquote>
+<p>接收到推送的目标用户中，到底有多少人开启了 App 通知权限？</p>
+</blockquote>
+<p>因为如果绝大部分用户都关闭了通知权限，那么即使消息能够到达设备，用户最终也可能看不到通知。</p>
+<p>每天实际涉及的推送用户大约有：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">20000+</span><br></pre></td></tr></table></figure>
+
+<p>其中通知权限处于开启状态的用户有：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">10000+</span><br></pre></td></tr></table></figure>
+
+<p>也就是说：</p>
+<p>每天至少有一万多目标用户，本身是允许 App 展示通知的。</p>
+<p>这个数据虽然不能直接证明：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">FCM 消息一定成功到达设备</span><br></pre></td></tr></table></figure>
+
+<p>但至少说明：</p>
+<blockquote>
+<p>问题不可能简单解释成“绝大多数用户关闭了通知权限”。</p>
+</blockquote>
+<p>否则没办法解释为什么有一万多用户本身是允许展示通知的，而 Firebase Console 却显示一天只有：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Received：300+</span><br></pre></td></tr></table></figure>
+
+<p>这时候数据已经有点对不上了。</p>
+<p>但还不能证明 Firebase 有问题。</p>
+<p>于是我们继续增加第二个埋点。</p>
+<hr>
+<h1 id="六、第二组埋点：统计用户点击通知进入-App"><a href="#六、第二组埋点：统计用户点击通知进入-App" class="headerlink" title="六、第二组埋点：统计用户点击通知进入 App"></a>六、第二组埋点：统计用户点击通知进入 App</h1><p>第二组埋点更加直接。</p>
+<p>我们统计：</p>
+<blockquote>
+<p>用户通过点击通知栏消息进入 App 的次数。</p>
+</blockquote>
+<p>最后统计出来的点击率大约是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1%</span><br></pre></td></tr></table></figure>
+
+<p>按照每天：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">50000+</span><br></pre></td></tr></table></figure>
+
+<p>条推送来计算，一天大概能够观察到：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">500+</span><br></pre></td></tr></table></figure>
+
+<p>次通知点击。</p>
+<p>然后一个非常明显的矛盾出现了。</p>
+<p>Firebase Console 告诉我们：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Received：300+</span><br></pre></td></tr></table></figure>
+
+<p>而我们的客户端埋点告诉我们：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">通知点击：500+</span><br></pre></td></tr></table></figure>
+
+<p>也就是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Firebase 认为收到消息的数量：300+</span><br><span class="line"></span><br><span class="line">实际点击通知进入 App 的数量：500+</span><br></pre></td></tr></table></figure>
+
+<p>这在我们当时对 <code>Received</code> 的理解下，逻辑上其实是不成立的。</p>
+<p>正常链路应该是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">FCM 消息到达设备</span><br><span class="line">        ↓</span><br><span class="line">系统展示通知</span><br><span class="line">        ↓</span><br><span class="line">用户看到通知</span><br><span class="line">        ↓</span><br><span class="line">用户点击通知</span><br><span class="line">        ↓</span><br><span class="line">进入 App</span><br></pre></td></tr></table></figure>
+
+<p>所以理论上一定应该满足：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">点击数量 &lt;= 收到数量</span><br></pre></td></tr></table></figure>
+
+<p>但我们的实际数据却是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">点击数量 &gt; Firebase Received</span><br></pre></td></tr></table></figure>
+
+<p>如果 <code>Received</code> 真的是“设备实际收到消息数”，那用户怎么可能点击一个 Firebase 认为根本没有收到的通知？</p>
+<p>这是整个排查过程中非常关键的一个矛盾。</p>
+<hr>
+<h1 id="七、但我们依然第一时间怀疑自己"><a href="#七、但我们依然第一时间怀疑自己" class="headerlink" title="七、但我们依然第一时间怀疑自己"></a>七、但我们依然第一时间怀疑自己</h1><p>现在回头来看，这其实是整个问题最有意思，也最值得记录的地方。</p>
+<p>当：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Firebase Received：300+</span><br></pre></td></tr></table></figure>
+
+<p>而：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">我们自己的点击埋点：500+</span><br></pre></td></tr></table></figure>
+
+<p>的时候，其实已经非常应该怀疑：</p>
+<blockquote>
+<p>Firebase Console 这个 Received 到底统计的是什么？</p>
+</blockquote>
+<p>但是我们当时完全没有这么想。</p>
+<p>我们的第一反应是：</p>
+<blockquote>
+<p>是不是自己的埋点有问题？</p>
+</blockquote>
+<p>于是又开始排查自己的统计逻辑：</p>
+<ul>
+<li>点击事件是不是重复触发了</li>
+<li>埋点是不是重复上报</li>
+<li>用户是不是重复点击</li>
+<li>SQL 聚合方式是不是有问题</li>
+<li>数据有没有跨天</li>
+<li>Push 是否混入其他消息来源</li>
+<li>客户端统计逻辑是不是写错了</li>
+<li>用户和设备的统计维度是不是没对齐</li>
+<li>通知权限统计是不是存在误差</li>
+</ul>
+<p>因为在我们潜意识里：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Firebase 官方数据</span><br></pre></td></tr></table></figure>
+
+<p>和：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">我们自己写的埋点</span><br></pre></td></tr></table></figure>
+
+<p>如果发生冲突，我们会自然地认为：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Firebase 是对的</span><br><span class="line">我们是错的</span><br></pre></td></tr></table></figure>
+
+<p>这也是整个问题真正把我们困住的地方。</p>
+<hr>
+<h1 id="八、为什么我们一直没有怀疑-Firebase-Received？"><a href="#八、为什么我们一直没有怀疑-Firebase-Received？" class="headerlink" title="八、为什么我们一直没有怀疑 Firebase Received？"></a>八、为什么我们一直没有怀疑 Firebase Received？</h1><p>还有一个重要原因。</p>
+<p><code>Received</code> 这个名字本身太有迷惑性了。</p>
+<p>你看到：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Sent</span><br><span class="line">Received</span><br></pre></td></tr></table></figure>
+
+<p>第一反应非常容易理解成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Sent = 发送</span><br><span class="line">Received = 收到</span><br></pre></td></tr></table></figure>
+
+<p>也就是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">发送数量</span><br><span class="line">    ↓</span><br><span class="line">设备实际收到数量</span><br></pre></td></tr></table></figure>
+
+<p>而且我们当时通过各种渠道搜索相关资料时，得到的信息也很容易进一步强化这种理解。</p>
+<p>所以整个排查过程中，我们几乎一直默认：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Received = FCM 实际触达到设备</span><br></pre></td></tr></table></figure>
+
+<p>这个前提是没有问题的。</p>
+<p>于是排查路线就变成了：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">Received 为什么这么低？</span><br><span class="line">        ↓</span><br><span class="line">是不是 Token 有问题？</span><br><span class="line">        ↓</span><br><span class="line">是不是 FCM 配置有问题？</span><br><span class="line">        ↓</span><br><span class="line">是不是 Priority 有问题？</span><br><span class="line">        ↓</span><br><span class="line">是不是 Doze？</span><br><span class="line">        ↓</span><br><span class="line">是不是 Android 后台限制？</span><br><span class="line">        ↓</span><br><span class="line">是不是通知权限？</span><br><span class="line">        ↓</span><br><span class="line">为什么自己的埋点和 Firebase 对不上？</span><br><span class="line">        ↓</span><br><span class="line">是不是自己的埋点又有问题？</span><br></pre></td></tr></table></figure>
+
+<p>我们一直在努力解释：</p>
+<blockquote>
+<p>为什么自己的所有数据都无法佐证 Firebase 的 300+ Received？</p>
+</blockquote>
+<p>却从来没有真正回头检查最开始的那个前提：</p>
+<blockquote>
+<p><code>Received</code> 到底是不是我们理解的那个“真实触达”？</p>
+</blockquote>
+<p>这是整个排查链路中最大的坑。</p>
+<hr>
+<h1 id="九、真正的转折点：开启-BigQuery"><a href="#九、真正的转折点：开启-BigQuery" class="headerlink" title="九、真正的转折点：开启 BigQuery"></a>九、真正的转折点：开启 BigQuery</h1><p>最后，我们决定开启 Firebase Cloud Messaging 的 BigQuery 数据导出。</p>
+<p>Firebase 开启 BigQuery Export 之后，可以查看更加详细的消息事件。</p>
+<p>其中我们重点关注一个事件：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_DELIVERED</span><br></pre></td></tr></table></figure>
+
+<p>等 BigQuery 开始产生数据之后，我们查询了一天的数据。</p>
+<p>结果看到：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_DELIVERED ≈ 36500</span><br></pre></td></tr></table></figure>
+
+<p>这个数字一出来，之前所有奇怪的现象一下子都解释通了。</p>
+<p>实际情况并不是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">发送：50000+</span><br><span class="line">        ↓</span><br><span class="line">设备收到：300+</span><br></pre></td></tr></table></figure>
+
+<p>而更接近：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">发送：50000+</span><br><span class="line">        ↓</span><br><span class="line">FCM</span><br><span class="line">        ↓</span><br><span class="line">MESSAGE_DELIVERED：36500+</span><br><span class="line">        ↓</span><br><span class="line">设备</span><br></pre></td></tr></table></figure>
+
+<p>粗略计算：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">36500 / 50000 ≈ 73%</span><br></pre></td></tr></table></figure>
+
+<p>也就是说，从 BigQuery 的消息投递数据来看：</p>
+<p><strong>我们的实际设备级送达情况是在 70%+ 这个量级。</strong></p>
+<p>而不是 Firebase Console 给我们造成的：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">不到 1%</span><br></pre></td></tr></table></figure>
+
+<p>的印象。</p>
+<hr>
+<h1 id="十、这时候之前的所有矛盾都解释通了"><a href="#十、这时候之前的所有矛盾都解释通了" class="headerlink" title="十、这时候之前的所有矛盾都解释通了"></a>十、这时候之前的所有矛盾都解释通了</h1><p>回过头看之前的数据：</p>
+<p>每天推送：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">50000+</span><br></pre></td></tr></table></figure>
+
+<p>涉及用户：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">20000+</span><br></pre></td></tr></table></figure>
+
+<p>其中开启通知权限：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">10000+</span><br></pre></td></tr></table></figure>
+
+<p>通知点击：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">500+</span><br></pre></td></tr></table></figure>
+
+<p>BigQuery：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_DELIVERED：36500+</span><br></pre></td></tr></table></figure>
+
+<p>这些数据实际上是在同一个合理范围里的。</p>
+<p>为什么有大量用户能够点击通知？</p>
+<p>因为确实有大量消息已经送到了设备。</p>
+<p>为什么业务上没有明显感觉 99% 用户收不到消息？</p>
+<p>因为实际也根本没有 99% 的消息丢失。</p>
+<p>为什么我们自己测试的时候 FCM 基本是正常的？</p>
+<p>因为 FCM 本身没有出现我们想象中那么严重的问题。</p>
+<p>真正和其他所有数据完全对不上的，只有：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Firebase Console Received：300+</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h1 id="十一、MESSAGE-DELIVERED-可以帮助确认什么？"><a href="#十一、MESSAGE-DELIVERED-可以帮助确认什么？" class="headerlink" title="十一、MESSAGE_DELIVERED 可以帮助确认什么？"></a>十一、MESSAGE_DELIVERED 可以帮助确认什么？</h1><p>整个 FCM 链路可以简单理解成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">业务服务器</span><br><span class="line">    ↓</span><br><span class="line">FCM Backend</span><br><span class="line">    ↓</span><br><span class="line">Google / Android 消息传输</span><br><span class="line">    ↓</span><br><span class="line">设备上的 FCM SDK</span><br><span class="line">    ↓</span><br><span class="line">App</span><br><span class="line">    ↓</span><br><span class="line">系统通知栏</span><br><span class="line">    ↓</span><br><span class="line">用户看到通知</span><br></pre></td></tr></table></figure>
+
+<p>BigQuery 中的：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_DELIVERED</span><br></pre></td></tr></table></figure>
+
+<p>可以用来判断消息已经进入设备侧的 FCM 投递链路。</p>
+<p>所以如果我们的目标是排查：</p>
+<blockquote>
+<p>FCM 到底有没有把消息送到设备？</p>
+</blockquote>
+<p>那么：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_DELIVERED</span><br></pre></td></tr></table></figure>
+
+<p>显然比单纯盯着 Firebase Console 的 <code>Received</code> 更有排查价值。</p>
+<p>我们最终观察到：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">发送：50000+</span><br><span class="line">MESSAGE_DELIVERED：36500+</span><br></pre></td></tr></table></figure>
+
+<p>已经足以证明：</p>
+<blockquote>
+<p>FCM 推送链路并不存在“5 万条只触达 300 条”这种级别的问题。</p>
+</blockquote>
+<p>这对于我们来说其实已经完成了最重要的一步。</p>
+<p>因为我们最开始排查的目标就是确认：</p>
+<blockquote>
+<p>到底是不是我们的推送系统本身出了严重问题？</p>
+</blockquote>
+<p>BigQuery 的数据最终证明：</p>
+<p><strong>不是。</strong></p>
+<hr>
+<h1 id="十二、为什么-Firebase-Console-Received-会和-BigQuery-差这么多？"><a href="#十二、为什么-Firebase-Console-Received-会和-BigQuery-差这么多？" class="headerlink" title="十二、为什么 Firebase Console Received 会和 BigQuery 差这么多？"></a>十二、为什么 Firebase Console Received 会和 BigQuery 差这么多？</h1><p>这也是这次最容易误解的地方。</p>
+<p>我们之前一直默认：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Firebase Console Received</span><br></pre></td></tr></table></figure>
+
+<p>就是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">FCM 真实设备送达数量</span><br></pre></td></tr></table></figure>
+
+<p>但实际上 Firebase Console 中展示的 Messaging 数据存在自己的统计口径。</p>
+<p>尤其如果使用的是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">data message</span><br></pre></td></tr></table></figure>
+
+<p>还需要特别注意 Firebase Analytics、Analytics Label 等相关统计条件。</p>
+<p>比如服务端发送的数据可能类似：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;message&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;token&quot;</span><span class="punctuation">:</span> <span class="string">&quot;xxxxx&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;data&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;title&quot;</span><span class="punctuation">:</span> <span class="string">&quot;title&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;body&quot;</span><span class="punctuation">:</span> <span class="string">&quot;body&quot;</span></span><br><span class="line">    <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;android&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;priority&quot;</span><span class="punctuation">:</span> <span class="string">&quot;high&quot;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>这种情况下，Firebase Console 中看到的统计数据并不能简单等价成：</p>
+<blockquote>
+<p>FCM 实际送达设备的完整数量。</p>
+</blockquote>
+<p>这也是我们之前一直误判问题严重程度的核心原因。</p>
+<hr>
+<h1 id="十三、BigQuery-查询示例"><a href="#十三、BigQuery-查询示例" class="headerlink" title="十三、BigQuery 查询示例"></a>十三、BigQuery 查询示例</h1><p>开启 Firebase Cloud Messaging BigQuery Export 之后，可以按照事件进行统计。</p>
+<p>最简单的查询：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    event,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> count</span><br><span class="line"><span class="keyword">FROM</span></span><br><span class="line">    `your_project.firebase_messaging.data`</span><br><span class="line"><span class="keyword">WHERE</span></span><br><span class="line">    <span class="type">DATE</span>(event_timestamp) <span class="operator">=</span> <span class="string">&#x27;2026-08-10&#x27;</span></span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span></span><br><span class="line">    event</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span></span><br><span class="line">    count <span class="keyword">DESC</span>;</span><br></pre></td></tr></table></figure>
+
+<p>可以查看不同 Event 的数量。</p>
+<p>如果需要按照消息和设备进行去重，可以继续使用：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    event,</span><br><span class="line">    <span class="built_in">COUNT</span>(</span><br><span class="line">        <span class="keyword">DISTINCT</span> CONCAT(message_id, instance_id)</span><br><span class="line">    ) <span class="keyword">AS</span> count</span><br><span class="line"><span class="keyword">FROM</span></span><br><span class="line">    `your_project.firebase_messaging.data`</span><br><span class="line"><span class="keyword">WHERE</span></span><br><span class="line">    <span class="type">DATE</span>(event_timestamp) <span class="operator">=</span> <span class="string">&#x27;2026-08-10&#x27;</span></span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span></span><br><span class="line">    event</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span></span><br><span class="line">    count <span class="keyword">DESC</span>;</span><br></pre></td></tr></table></figure>
+
+<p>这样可以重点关注：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_ACCEPTED</span><br><span class="line">MESSAGE_DELIVERED</span><br></pre></td></tr></table></figure>
+
+<p>等事件。</p>
+<hr>
+<h1 id="十四、还可以按照-message-type-排查"><a href="#十四、还可以按照-message-type-排查" class="headerlink" title="十四、还可以按照 message_type 排查"></a>十四、还可以按照 message_type 排查</h1><p>如果 Firebase Console 和 BigQuery 的差异非常大，可以继续按照消息类型统计：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    message_type,</span><br><span class="line">    event,</span><br><span class="line">    <span class="built_in">COUNT</span>(</span><br><span class="line">        <span class="keyword">DISTINCT</span> CONCAT(message_id, instance_id)</span><br><span class="line">    ) <span class="keyword">AS</span> count</span><br><span class="line"><span class="keyword">FROM</span></span><br><span class="line">    `your_project.firebase_messaging.data`</span><br><span class="line"><span class="keyword">WHERE</span></span><br><span class="line">    <span class="type">DATE</span>(event_timestamp) <span class="operator">=</span> <span class="string">&#x27;2026-08-10&#x27;</span></span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span></span><br><span class="line">    message_type,</span><br><span class="line">    event</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span></span><br><span class="line">    message_type,</span><br><span class="line">    event;</span><br></pre></td></tr></table></figure>
+
+<p>如果自己的业务主要发送：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">DATA_MESSAGE</span><br></pre></td></tr></table></figure>
+
+<p>同时 BigQuery 中：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_DELIVERED</span><br></pre></td></tr></table></figure>
+
+<p>数量非常正常，但 Firebase Console 的 <code>Received</code> 非常低，那么这时候就应该开始重点检查：</p>
+<blockquote>
+<p>两边的统计口径是不是根本不同？</p>
+</blockquote>
+<p>而不是第一时间继续怀疑 FCM 的实际投递链路。</p>
+<hr>
+<h1 id="十五、MESSAGE-DELIVERED-也不代表用户一定看到了通知"><a href="#十五、MESSAGE-DELIVERED-也不代表用户一定看到了通知" class="headerlink" title="十五、MESSAGE_DELIVERED 也不代表用户一定看到了通知"></a>十五、MESSAGE_DELIVERED 也不代表用户一定看到了通知</h1><p>这里还需要额外说明一点。</p>
+<p>虽然：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_DELIVERED</span><br></pre></td></tr></table></figure>
+
+<p>可以帮助我们确认 FCM 到设备这一段没有之前想象中那么大的问题。</p>
+<p>但：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_DELIVERED</span><br></pre></td></tr></table></figure>
+
+<p>也不能简单理解成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">用户一定看到了通知</span><br></pre></td></tr></table></figure>
+
+<p>因为后面还有一段客户端链路：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">FCM</span><br><span class="line">    ↓</span><br><span class="line">MESSAGE_DELIVERED</span><br><span class="line">    ↓</span><br><span class="line">设备 FCM SDK</span><br><span class="line">    ↓</span><br><span class="line">App 消息处理</span><br><span class="line">    ↓</span><br><span class="line">NotificationManager</span><br><span class="line">    ↓</span><br><span class="line">Android 通知栏</span><br><span class="line">    ↓</span><br><span class="line">用户看到</span><br></pre></td></tr></table></figure>
+
+<p>如果：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_DELIVERED 很高</span><br></pre></td></tr></table></figure>
+
+<p>但是用户实际看到通知的比例依然很低，那么接下来应该排查的方向就完全不同了，例如：</p>
+<ul>
+<li>Android 13+ 通知权限</li>
+<li>用户是否关闭 App 通知</li>
+<li>Notification Channel 是否关闭</li>
+<li>App 是否自己过滤消息</li>
+<li><code>FirebaseMessagingService</code> 消息处理</li>
+<li>Notification 创建逻辑</li>
+<li>前后台状态差异</li>
+<li>厂商 ROM 的通知展示限制</li>
+<li>业务代码是否主动丢弃某些消息</li>
+</ul>
+<p>这时候问题已经不是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">FCM 有没有把消息送下来？</span><br></pre></td></tr></table></figure>
+
+<p>而是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">消息到设备以后，有没有真正展示给用户？</span><br></pre></td></tr></table></figure>
+
+<p>一定要把这两个阶段拆开分析。</p>
+<hr>
+<h1 id="十六、整个问题最大的坑：我们过于相信-Firebase-Console"><a href="#十六、整个问题最大的坑：我们过于相信-Firebase-Console" class="headerlink" title="十六、整个问题最大的坑：我们过于相信 Firebase Console"></a>十六、整个问题最大的坑：我们过于相信 Firebase Console</h1><p>现在重新回看整个排查过程，真正浪费我们最多时间的，其实不是 FCM 有多复杂。</p>
+<p>而是：</p>
+<blockquote>
+<p><strong>我们过于相信 Firebase Console 展示出来的数据。</strong></p>
+</blockquote>
+<p>当 Firebase 告诉我们：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Sent：50000+</span><br><span class="line">Received：300+</span><br></pre></td></tr></table></figure>
+
+<p>时，我们几乎没有怀疑地接受了这个前提：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">真实触达只有 300+</span><br></pre></td></tr></table></figure>
+
+<p>然后开始围绕这个结论排查所有东西。</p>
+<p>但是随着排查继续，自己的数据其实一直在告诉我们：</p>
+<blockquote>
+<p>这个结论可能不对。</p>
+</blockquote>
+<p>第一组数据：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">每天推送用户：20000+</span><br><span class="line">通知权限开启：10000+</span><br></pre></td></tr></table></figure>
+
+<p>无法解释为什么实际触达只有 300。</p>
+<p>第二组数据更加夸张：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Firebase Received：300+</span><br><span class="line">自己统计通知点击：500+</span><br></pre></td></tr></table></figure>
+
+<p>按照我们当时对 <code>Received</code> 的理解：</p>
+<p>这件事情在逻辑上根本不应该发生。</p>
+<p>一个用户需要经历：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">收到消息</span><br><span class="line">    ↓</span><br><span class="line">看到通知</span><br><span class="line">    ↓</span><br><span class="line">点击通知</span><br></pre></td></tr></table></figure>
+
+<p>才能产生点击事件。</p>
+<p>所以：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">点击数量 &gt; 收到数量</span><br></pre></td></tr></table></figure>
+
+<p>本身就是一个非常强烈的异常信号。</p>
+<p>但我们当时的第一反应仍然是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">自己的埋点有问题</span><br></pre></td></tr></table></figure>
+
+<p>而不是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Firebase 的统计口径可能和我们想的不一样</span><br></pre></td></tr></table></figure>
+
+<p>因为 Firebase 是官方平台。</p>
+<p>因为控制台的数据看起来更加权威。</p>
+<p>也因为 <code>Received</code> 这个名字非常容易让人理解成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">设备实际收到消息</span><br></pre></td></tr></table></figure>
+
+<p>甚至我们通过其他渠道查询到的信息，也一直在强化这种理解。</p>
+<p>所以整个排查过程实际上变成了：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">先相信 Firebase 的 300+</span><br><span class="line">        ↓</span><br><span class="line">发现自己的数据不一致</span><br><span class="line">        ↓</span><br><span class="line">怀疑自己的代码</span><br><span class="line">        ↓</span><br><span class="line">修改</span><br><span class="line">        ↓</span><br><span class="line">继续不一致</span><br><span class="line">        ↓</span><br><span class="line">继续怀疑自己</span><br></pre></td></tr></table></figure>
+
+<p>我们一直在尝试：</p>
+<blockquote>
+<p>用自己的数据解释 Firebase 为什么是对的。</p>
+</blockquote>
+<p>却没有反过来问：</p>
+<blockquote>
+<p>Firebase Console 这个数据本身，到底能不能用来回答我们现在的问题？</p>
+</blockquote>
+<p>直到 BigQuery 中出现：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_DELIVERED：36500+</span><br></pre></td></tr></table></figure>
+
+<p>才终于打破了这个前提。</p>
+<hr>
+<h1 id="十七、如果重新排查一次，我会怎么做？"><a href="#十七、如果重新排查一次，我会怎么做？" class="headerlink" title="十七、如果重新排查一次，我会怎么做？"></a>十七、如果重新排查一次，我会怎么做？</h1><p>以后再遇到类似：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">FCM 触达率异常</span><br></pre></td></tr></table></figure>
+
+<p>的问题，我不会再只围绕 Firebase Console 的 <code>Received</code> 排查。</p>
+<p>我会按照下面这个顺序。</p>
+<h2 id="第一步：确认服务端发送是否正常"><a href="#第一步：确认服务端发送是否正常" class="headerlink" title="第一步：确认服务端发送是否正常"></a>第一步：确认服务端发送是否正常</h2><p>先检查 FCM API 的发送结果。</p>
+<p>重点关注：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">UNREGISTERED</span><br><span class="line">INVALID_ARGUMENT</span><br><span class="line">QUOTA_EXCEEDED</span><br><span class="line">UNAVAILABLE</span><br></pre></td></tr></table></figure>
+
+<p>等异常。</p>
+<p>如果存在大量 Token 失效，先解决 Token 生命周期问题。</p>
+<hr>
+<h2 id="第二步：确认自己的业务指标"><a href="#第二步：确认自己的业务指标" class="headerlink" title="第二步：确认自己的业务指标"></a>第二步：确认自己的业务指标</h2><p>客户端最好有自己的埋点。</p>
+<p>至少可以统计：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">目标用户数量</span><br><span class="line">通知权限开启比例</span><br><span class="line">通知展示</span><br><span class="line">通知点击</span><br><span class="line">App 打开</span><br></pre></td></tr></table></figure>
+
+<p>这些指标可以形成自己的业务观察链路。</p>
+<p>不要完全依赖第三方平台上的一个数字。</p>
+<hr>
+<h2 id="第三步：如果数据出现逻辑矛盾，先检查指标定义"><a href="#第三步：如果数据出现逻辑矛盾，先检查指标定义" class="headerlink" title="第三步：如果数据出现逻辑矛盾，先检查指标定义"></a>第三步：如果数据出现逻辑矛盾，先检查指标定义</h2><p>比如：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Received：300</span><br><span class="line">通知点击：500</span><br></pre></td></tr></table></figure>
+
+<p>这种情况下不要只想着：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">是不是自己的埋点错了？</span><br></pre></td></tr></table></figure>
+
+<p>还应该同时问：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Received 的技术定义到底是什么？</span><br><span class="line">统计条件是什么？</span><br><span class="line">统计范围是什么？</span><br><span class="line">哪些消息会进入这个指标？</span><br></pre></td></tr></table></figure>
+
+<p>指标名字只能帮助理解。</p>
+<p>不能代替指标定义。</p>
+<hr>
+<h2 id="第四步：尽早开启-BigQuery-Export"><a href="#第四步：尽早开启-BigQuery-Export" class="headerlink" title="第四步：尽早开启 BigQuery Export"></a>第四步：尽早开启 BigQuery Export</h2><p>如果需要认真分析 FCM 的设备投递情况，建议尽早开启：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Firebase Cloud Messaging BigQuery Export</span><br></pre></td></tr></table></figure>
+
+<p>重点观察：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">MESSAGE_ACCEPTED</span><br><span class="line">MESSAGE_DELIVERED</span><br></pre></td></tr></table></figure>
+
+<p>而不是等问题出现很久之后再开启。</p>
+<p>这次如果我们一开始就有 BigQuery 数据，整个问题可能很快就结束了。</p>
+<hr>
+<h2 id="第五步：把“送达到设备”和“用户看到通知”拆开"><a href="#第五步：把“送达到设备”和“用户看到通知”拆开" class="headerlink" title="第五步：把“送达到设备”和“用户看到通知”拆开"></a>第五步：把“送达到设备”和“用户看到通知”拆开</h2><p>最终整个链路最好分成两部分：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">第一段：</span><br><span class="line"></span><br><span class="line">服务端</span><br><span class="line">  ↓</span><br><span class="line">FCM</span><br><span class="line">  ↓</span><br><span class="line">设备</span><br><span class="line"></span><br><span class="line">第二段：</span><br><span class="line"></span><br><span class="line">设备</span><br><span class="line">  ↓</span><br><span class="line">App</span><br><span class="line">  ↓</span><br><span class="line">通知栏</span><br><span class="line">  ↓</span><br><span class="line">用户点击</span><br></pre></td></tr></table></figure>
+
+<p>第一段出现问题，就排查：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Token</span><br><span class="line">FCM</span><br><span class="line">网络</span><br><span class="line">消息 Priority</span><br><span class="line">投递事件</span><br></pre></td></tr></table></figure>
+
+<p>第二段出现问题，则排查：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">通知权限</span><br><span class="line">Notification Channel</span><br><span class="line">客户端处理</span><br><span class="line">Android 系统限制</span><br><span class="line">厂商 ROM</span><br><span class="line">业务逻辑</span><br></pre></td></tr></table></figure>
+
+<p>不要把两类问题混在一起。</p>
+<hr>
+<h1 id="十八、最终结论"><a href="#十八、最终结论" class="headerlink" title="十八、最终结论"></a>十八、最终结论</h1><p>这次问题最后几个核心数据是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">每天 FCM 发送：</span><br><span class="line"></span><br><span class="line">50000+</span><br><span class="line"></span><br><span class="line">Firebase Console Received：</span><br><span class="line"></span><br><span class="line">300+</span><br><span class="line"></span><br><span class="line">自己的通知点击埋点：</span><br><span class="line"></span><br><span class="line">500+</span><br><span class="line"></span><br><span class="line">BigQuery MESSAGE_DELIVERED：</span><br><span class="line"></span><br><span class="line">36500+</span><br></pre></td></tr></table></figure>
+
+<p>如果只相信 Firebase Console：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">FCM 触达率 &lt; 1%</span><br></pre></td></tr></table></figure>
+
+<p>整个推送系统看起来几乎已经不可用。</p>
+<p>但 BigQuery 最终告诉我们：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">36500 / 50000 ≈ 73%</span><br></pre></td></tr></table></figure>
+
+<p>实际情况根本不是一个数量级。</p>
+<p>因此这次最终能够确认：</p>
+<blockquote>
+<p><strong>我们的 FCM 推送链路本身并不存在最开始认为的严重触达问题。</strong></p>
+</blockquote>
+<p>真正的问题是：</p>
+<blockquote>
+<p><strong>我们误把 Firebase Console 的 Received 当成了完整、准确的实际设备触达数量。</strong></p>
+</blockquote>
+<p>这是这次踩坑最大的教训。</p>
+<hr>
+<h1 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h1><p>作为开发人员，我们通常很容易相信平台提供的数据。</p>
+<p>尤其是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Firebase</span><br><span class="line">AWS</span><br><span class="line">Google Cloud</span><br><span class="line">第三方监控平台</span><br><span class="line">各种 Dashboard</span><br></pre></td></tr></table></figure>
+
+<p>这些平台的数据往往天然带着一种“官方就是正确答案”的感觉。</p>
+<p>但其实：</p>
+<p><strong>数据可以是准确的，理解仍然可以是错误的。</strong></p>
+<p>一个指标叫：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Received</span><br></pre></td></tr></table></figure>
+
+<p>不代表它就一定等于：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">你脑海里理解的那个 Received</span><br></pre></td></tr></table></figure>
+
+<p>当不同数据之间发生明显冲突时：</p>
+<p>不要只是怀疑：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">我的代码是不是错了？</span><br><span class="line">我的埋点是不是错了？</span><br><span class="line">我的 SQL 是不是错了？</span><br></pre></td></tr></table></figure>
+
+<p>还应该反过来检查：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">这个第三方指标到底是怎么定义的？</span><br></pre></td></tr></table></figure>
+
+<p>这次我们最大的教训不是某个 FCM 参数怎么配置。</p>
+<p>而是：</p>
+<blockquote>
+<p><strong>先理解指标，再相信指标。</strong></p>
+</blockquote>
+<p>否则系统可能根本没有坏。</p>
+<p>真正把排查方向带偏的，只是一个看起来非常合理的数据。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="http://example.com">Asteryn</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="http://example.com/2026/08/10/fcm-received-vs-message-delivered/">http://example.com/2026/08/10/fcm-received-vs-message-delivered/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="http://example.com" target="_blank">Asteryn</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/FCM/">FCM</a><a class="post-meta__tags" href="/tags/Firebase/">Firebase</a><a class="post-meta__tags" href="/tags/Android/">Android</a><a class="post-meta__tags" href="/tags/BigQuery/">BigQuery</a><a class="post-meta__tags" href="/tags/Push-Notification/">Push Notification</a><a class="post-meta__tags" href="/tags/%E6%B6%88%E6%81%AF%E6%8E%A8%E9%80%81/">消息推送</a></div><div class="post-share"><div class="social-share" data-image="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/07/20/spring-boot-api-performance-test-report-2026-07-20/" title="Spring Boot 接口压测实战：同步日志、数据库连接池与远程 Redis 的性能影响"><img class="cover" src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post" loading='lazy'><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Spring Boot 接口压测实战：同步日志、数据库连接池与远程 Redis 的性能影响</div></div><div class="info-2"><div class="info-item-1"> 测试日期：2026-07-20 测试对象：video-tuber-admin 本地 Spring Boot 服务 测试接口：写接口 /apiV2/sa、读接口 /apiV2/activity/profileSummary  一、摘要本次测试希望回答三个问题：  /sa 接口的 QPS 为什么长期停留在 100～120 左右？ 高频日志到底只是消耗磁盘，还是会显著影响 CPU、响应时间和数据库连接池？ 把 Druid 最大连接数从...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/07/14/502-incident-02-fcm-throttling/" title="双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理"><img class="cover" src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80" alt="cover" loading='lazy'><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-14</div><div class="info-item-2">双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理</div></div><div class="info-2"><div class="info-item-1">在 502 事故发生后的第一轮止血中，我给 FCM 消费链路增加了全局限流。虽然事后证明 FCM 不是 502 的直接根因，但这个补丁仍然解决了两个真实问题：双实例消费没有总量控制，以及大量没有推荐视频的用户被反复投递。 补丁对应的核心提交是： 1234de4082d7  FCM 消费者添加限流控制56c25d04  二次投递前校验是否有推荐视频7880c8dd  token 被清理的用户不再二次投递9bbdf7c9  非 B 用...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/astery-avatar-starry.svg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/ loading='lazy'></div><div class="author-info-name">Asteryn</div><div class="author-info-description">后端工程与系统设计笔记</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">9</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">28</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/YiLinyun"><i class="fab fa-github"></i><span>GitHub</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">Asteryn 正在整理后端架构、活动系统、消息链路与工程实践。</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E9%97%AE%E9%A2%98%E7%8E%B0%E8%B1%A1"><span class="toc-number">1.</span> <span class="toc-text">一、问题现象</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E7%AC%AC%E4%B8%80%E8%BD%AE%E6%8E%92%E6%9F%A5%EF%BC%9A%E6%98%AF%E4%B8%8D%E6%98%AF-Token-%E6%9C%89%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="toc-number">2.</span> <span class="toc-text">二、第一轮排查：是不是 Token 有问题？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E6%80%80%E7%96%91-Android-%E5%90%8E%E5%8F%B0%E9%99%90%E5%88%B6"><span class="toc-number">3.</span> <span class="toc-text">三、怀疑 Android 后台限制</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E5%B0%86%E6%B6%88%E6%81%AF-Priority-%E8%B0%83%E6%95%B4%E4%B8%BA-HIGH"><span class="toc-number">4.</span> <span class="toc-text">四、将消息 Priority 调整为 HIGH</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E5%BC%80%E5%A7%8B%E8%87%AA%E5%B7%B1%E5%81%9A%E5%9F%8B%E7%82%B9%E9%AA%8C%E8%AF%81"><span class="toc-number">5.</span> <span class="toc-text">五、开始自己做埋点验证</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E7%BB%9F%E8%AE%A1%E7%9B%AE%E6%A0%87%E7%94%A8%E6%88%B7%E7%9A%84%E9%80%9A%E7%9F%A5%E6%9D%83%E9%99%90"><span class="toc-number">5.1.</span> <span class="toc-text">1. 统计目标用户的通知权限</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E7%AC%AC%E4%BA%8C%E7%BB%84%E5%9F%8B%E7%82%B9%EF%BC%9A%E7%BB%9F%E8%AE%A1%E7%94%A8%E6%88%B7%E7%82%B9%E5%87%BB%E9%80%9A%E7%9F%A5%E8%BF%9B%E5%85%A5-App"><span class="toc-number">6.</span> <span class="toc-text">六、第二组埋点：统计用户点击通知进入 App</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E4%BD%86%E6%88%91%E4%BB%AC%E4%BE%9D%E7%84%B6%E7%AC%AC%E4%B8%80%E6%97%B6%E9%97%B4%E6%80%80%E7%96%91%E8%87%AA%E5%B7%B1"><span class="toc-number">7.</span> <span class="toc-text">七、但我们依然第一时间怀疑自己</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E6%88%91%E4%BB%AC%E4%B8%80%E7%9B%B4%E6%B2%A1%E6%9C%89%E6%80%80%E7%96%91-Firebase-Received%EF%BC%9F"><span class="toc-number">8.</span> <span class="toc-text">八、为什么我们一直没有怀疑 Firebase Received？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E7%9C%9F%E6%AD%A3%E7%9A%84%E8%BD%AC%E6%8A%98%E7%82%B9%EF%BC%9A%E5%BC%80%E5%90%AF-BigQuery"><span class="toc-number">9.</span> <span class="toc-text">九、真正的转折点：开启 BigQuery</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8D%81%E3%80%81%E8%BF%99%E6%97%B6%E5%80%99%E4%B9%8B%E5%89%8D%E7%9A%84%E6%89%80%E6%9C%89%E7%9F%9B%E7%9B%BE%E9%83%BD%E8%A7%A3%E9%87%8A%E9%80%9A%E4%BA%86"><span class="toc-number">10.</span> <span class="toc-text">十、这时候之前的所有矛盾都解释通了</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8D%81%E4%B8%80%E3%80%81MESSAGE-DELIVERED-%E5%8F%AF%E4%BB%A5%E5%B8%AE%E5%8A%A9%E7%A1%AE%E8%AE%A4%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">11.</span> <span class="toc-text">十一、MESSAGE_DELIVERED 可以帮助确认什么？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8D%81%E4%BA%8C%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88-Firebase-Console-Received-%E4%BC%9A%E5%92%8C-BigQuery-%E5%B7%AE%E8%BF%99%E4%B9%88%E5%A4%9A%EF%BC%9F"><span class="toc-number">12.</span> <span class="toc-text">十二、为什么 Firebase Console Received 会和 BigQuery 差这么多？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8D%81%E4%B8%89%E3%80%81BigQuery-%E6%9F%A5%E8%AF%A2%E7%A4%BA%E4%BE%8B"><span class="toc-number">13.</span> <span class="toc-text">十三、BigQuery 查询示例</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8D%81%E5%9B%9B%E3%80%81%E8%BF%98%E5%8F%AF%E4%BB%A5%E6%8C%89%E7%85%A7-message-type-%E6%8E%92%E6%9F%A5"><span class="toc-number">14.</span> <span class="toc-text">十四、还可以按照 message_type 排查</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8D%81%E4%BA%94%E3%80%81MESSAGE-DELIVERED-%E4%B9%9F%E4%B8%8D%E4%BB%A3%E8%A1%A8%E7%94%A8%E6%88%B7%E4%B8%80%E5%AE%9A%E7%9C%8B%E5%88%B0%E4%BA%86%E9%80%9A%E7%9F%A5"><span class="toc-number">15.</span> <span class="toc-text">十五、MESSAGE_DELIVERED 也不代表用户一定看到了通知</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8D%81%E5%85%AD%E3%80%81%E6%95%B4%E4%B8%AA%E9%97%AE%E9%A2%98%E6%9C%80%E5%A4%A7%E7%9A%84%E5%9D%91%EF%BC%9A%E6%88%91%E4%BB%AC%E8%BF%87%E4%BA%8E%E7%9B%B8%E4%BF%A1-Firebase-Console"><span class="toc-number">16.</span> <span class="toc-text">十六、整个问题最大的坑：我们过于相信 Firebase Console</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8D%81%E4%B8%83%E3%80%81%E5%A6%82%E6%9E%9C%E9%87%8D%E6%96%B0%E6%8E%92%E6%9F%A5%E4%B8%80%E6%AC%A1%EF%BC%8C%E6%88%91%E4%BC%9A%E6%80%8E%E4%B9%88%E5%81%9A%EF%BC%9F"><span class="toc-number">17.</span> <span class="toc-text">十七、如果重新排查一次，我会怎么做？</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AC%AC%E4%B8%80%E6%AD%A5%EF%BC%9A%E7%A1%AE%E8%AE%A4%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%8F%91%E9%80%81%E6%98%AF%E5%90%A6%E6%AD%A3%E5%B8%B8"><span class="toc-number">17.1.</span> <span class="toc-text">第一步：确认服务端发送是否正常</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AC%AC%E4%BA%8C%E6%AD%A5%EF%BC%9A%E7%A1%AE%E8%AE%A4%E8%87%AA%E5%B7%B1%E7%9A%84%E4%B8%9A%E5%8A%A1%E6%8C%87%E6%A0%87"><span class="toc-number">17.2.</span> <span class="toc-text">第二步：确认自己的业务指标</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AC%AC%E4%B8%89%E6%AD%A5%EF%BC%9A%E5%A6%82%E6%9E%9C%E6%95%B0%E6%8D%AE%E5%87%BA%E7%8E%B0%E9%80%BB%E8%BE%91%E7%9F%9B%E7%9B%BE%EF%BC%8C%E5%85%88%E6%A3%80%E6%9F%A5%E6%8C%87%E6%A0%87%E5%AE%9A%E4%B9%89"><span class="toc-number">17.3.</span> <span class="toc-text">第三步：如果数据出现逻辑矛盾，先检查指标定义</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AC%AC%E5%9B%9B%E6%AD%A5%EF%BC%9A%E5%B0%BD%E6%97%A9%E5%BC%80%E5%90%AF-BigQuery-Export"><span class="toc-number">17.4.</span> <span class="toc-text">第四步：尽早开启 BigQuery Export</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AC%AC%E4%BA%94%E6%AD%A5%EF%BC%9A%E6%8A%8A%E2%80%9C%E9%80%81%E8%BE%BE%E5%88%B0%E8%AE%BE%E5%A4%87%E2%80%9D%E5%92%8C%E2%80%9C%E7%94%A8%E6%88%B7%E7%9C%8B%E5%88%B0%E9%80%9A%E7%9F%A5%E2%80%9D%E6%8B%86%E5%BC%80"><span class="toc-number">17.5.</span> <span class="toc-text">第五步：把“送达到设备”和“用户看到通知”拆开</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8D%81%E5%85%AB%E3%80%81%E6%9C%80%E7%BB%88%E7%BB%93%E8%AE%BA"><span class="toc-number">18.</span> <span class="toc-text">十八、最终结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">19.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/08/10/fcm-received-vs-message-delivered/" title="Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录"><img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/08/10/fcm-received-vs-message-delivered/" title="Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录">Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录</a><time datetime="2026-08-10T08:55:00.000Z" title="发表于 2026-08-10 16:55:00">2026-08-10</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/20/spring-boot-api-performance-test-report-2026-07-20/" title="Spring Boot 接口压测实战：同步日志、数据库连接池与远程 Redis 的性能影响"><img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring Boot 接口压测实战：同步日志、数据库连接池与远程 Redis 的性能影响"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/07/20/spring-boot-api-performance-test-report-2026-07-20/" title="Spring Boot 接口压测实战：同步日志、数据库连接池与远程 Redis 的性能影响">Spring Boot 接口压测实战：同步日志、数据库连接池与远程 Redis 的性能影响</a><time datetime="2026-07-20T11:00:00.000Z" title="发表于 2026-07-20 19:00:00">2026-07-20</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/14/502-incident-04-sa-optimization/" title="SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身"><img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/07/14/502-incident-04-sa-optimization/" title="SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身">SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身</a><time datetime="2026-07-14T12:30:00.000Z" title="发表于 2026-07-14 20:30:00">2026-07-14</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/14/502-incident-03-observability/" title="从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口"><img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/07/14/502-incident-03-observability/" title="从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口">从 Nginx 日志到接口 P95：用 Actuator、Prometheus、Grafana 定位 SA 慢接口</a><time datetime="2026-07-14T12:20:00.000Z" title="发表于 2026-07-14 20:20:00">2026-07-14</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/14/502-incident-02-fcm-throttling/" title="双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理"><img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/07/14/502-incident-02-fcm-throttling/" title="双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理">双实例 FCM 消费如何限流：Redis 秒级配额、延迟重投与推荐池清理</a><time datetime="2026-07-14T12:10:00.000Z" title="发表于 2026-07-14 20:10:00">2026-07-14</time></div></div></div></div></div></div></main><footer id="footer" style="background-image: url(https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=2200&amp;q=80);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By Asteryn</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5-b1</a></span></div><div class="footer_custom_text">用工程笔记保存思考的上下文。</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5-b1"></script><script src="/js/main.js?v=5.5.5-b1"></script><script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.1.0/dist/medium-zoom.min.js"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
