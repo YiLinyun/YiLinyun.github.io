@@ -1,0 +1,393 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Telegram 频道关注任务开发记录 | Asteryn</title><meta name="author" content="Asteryn"><meta name="copyright" content="Asteryn"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f7fbfa"><meta name="description" content="最近在项目里做了一个 Telegram 频道关注任务，整体需求其实比较简单：  用户从 App 跳转到 Telegram，完成账号绑定并关注指定频道，关注成功后完成任务并发放奖励。  一开始这个需求是按照“加入 Telegram 群组”来设计的，后面改成了“关注 Telegram 频道”。 实际开发下来发现，两者在 Bot API 上很多逻辑都可以复用，只需要针对成员状态和 Webhook 做一些">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Telegram 频道关注任务开发记录">
+<meta property="og:url" content="http://example.com/2026/09/20/telegram-channel-follow-task-development/index.html">
+<meta property="og:site_name" content="Asteryn">
+<meta property="og:description" content="最近在项目里做了一个 Telegram 频道关注任务，整体需求其实比较简单：  用户从 App 跳转到 Telegram，完成账号绑定并关注指定频道，关注成功后完成任务并发放奖励。  一开始这个需求是按照“加入 Telegram 群组”来设计的，后面改成了“关注 Telegram 频道”。 实际开发下来发现，两者在 Bot API 上很多逻辑都可以复用，只需要针对成员状态和 Webhook 做一些">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=1200&q=80">
+<meta property="article:published_time" content="2026-09-20T07:30:00.000Z">
+<meta property="article:modified_time" content="2026-09-20T07:43:51.117Z">
+<meta property="article:author" content="Asteryn">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Telegram">
+<meta property="article:tag" content="Telegram Bot">
+<meta property="article:tag" content="Webhook">
+<meta property="article:tag" content="Bot API">
+<meta property="article:tag" content="任务系统">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=1200&q=80"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Telegram 频道关注任务开发记录",
+  "url": "http://example.com/2026/09/20/telegram-channel-follow-task-development/",
+  "image": "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=1200&q=80",
+  "datePublished": "2026-09-20T07:30:00.000Z",
+  "dateModified": "2026-09-20T07:43:51.117Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Asteryn",
+      "url": "http://example.com"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/astery-avatar-starry.svg"><link rel="canonical" href="http://example.com/2026/09/20/telegram-channel-follow-task-development/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5-b1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#15181f')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f7fbfa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":150,"languages":{"author":"作者: Asteryn","link":"链接: ","source":"来源: Asteryn","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'medium_zoom',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Telegram 频道关注任务开发记录',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link rel="stylesheet" href="/css/astery-custom.css"><meta name="generator" content="Hexo 7.3.0"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/astery-bg.svg);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/astery-avatar-starry.svg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/ loading='lazy'></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">11</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">34</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header" style="background-image: url(https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="/img/astery-avatar-starry.svg" alt="Logo" loading='lazy'><span class="site-name">Asteryn</span></a><a class="nav-page-title" href="/"><span class="site-name">Telegram 频道关注任务开发记录</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Telegram 频道关注任务开发记录</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-20T07:30:00.000Z" title="发表于 2026-09-20 15:30:00">2026-09-20</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-09-20T07:43:51.117Z" title="更新于 2026-09-20 15:43:51">2026-09-20</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%BC%80%E5%8F%91/">后端开发</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><p>最近在项目里做了一个 Telegram 频道关注任务，整体需求其实比较简单：</p>
+<blockquote>
+<p>用户从 App 跳转到 Telegram，完成账号绑定并关注指定频道，关注成功后完成任务并发放奖励。</p>
+</blockquote>
+<p>一开始这个需求是按照“加入 Telegram 群组”来设计的，后面改成了“关注 Telegram 频道”。</p>
+<p>实际开发下来发现，两者在 Bot API 上很多逻辑都可以复用，只需要针对成员状态和 Webhook 做一些处理。</p>
+<h2 id="整体流程"><a href="#整体流程" class="headerlink" title="整体流程"></a>整体流程</h2><p>目前实现的流程大概如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">App 生成 Bot 链接</span><br><span class="line">        ↓</span><br><span class="line">打开 Telegram Bot</span><br><span class="line">        ↓</span><br><span class="line">自动发送 /start 参数</span><br><span class="line">        ↓</span><br><span class="line">绑定 Telegram ID 和 Pockly 用户 ID</span><br><span class="line">        ↓</span><br><span class="line">检查用户是否已经关注频道</span><br><span class="line">        ↓</span><br><span class="line">    ┌───────────┐</span><br><span class="line">    │           │</span><br><span class="line">   已关注       未关注</span><br><span class="line">    │           │</span><br><span class="line">    ↓           ↓</span><br><span class="line">完成任务      Bot 返回频道链接</span><br><span class="line">发放奖励          ↓</span><br><span class="line">               用户关注频道</span><br><span class="line">                    ↓</span><br><span class="line">             chat_member 回调</span><br><span class="line">                    ↓</span><br><span class="line">             判断是否新加入</span><br><span class="line">                    ↓</span><br><span class="line">                 完成任务</span><br><span class="line">                 发放奖励</span><br></pre></td></tr></table></figure>
+
+<p>除此之外，App 端还可以主动调用接口，由服务端通过 Telegram Bot API 查询用户当前是否已经关注频道。</p>
+<p>所以目前实际上有两条判断路径：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">chat_member Webhook</span><br></pre></td></tr></table></figure>
+
+<p>以及：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">getChatMember 主动查询</span><br></pre></td></tr></table></figure>
+
+<p>两者结合使用。</p>
+<hr>
+<h2 id="使用-start-完成账号绑定"><a href="#使用-start-完成账号绑定" class="headerlink" title="使用 /start 完成账号绑定"></a>使用 <code>/start</code> 完成账号绑定</h2><p>App 首先生成一个带参数的 Bot 链接：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://t.me/&lt;bot_username&gt;?start=&lt;bindToken&gt;</span><br></pre></td></tr></table></figure>
+
+<p>例如：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://t.me/xxx_bot?start=xxxxxxxx</span><br></pre></td></tr></table></figure>
+
+<p>用户打开 Telegram 并点击 <code>Start</code> 后，Bot 会收到一条类似下面的消息：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/start xxxxxxxx</span><br></pre></td></tr></table></figure>
+
+<p>Webhook 中可以通过：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">message.from.id</span><br></pre></td></tr></table></figure>
+
+<p>拿到用户的 Telegram ID。</p>
+<p>然后再根据 <code>/start</code> 后面的参数找到对应的 App 用户。</p>
+<p>最终建立：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Pockly userId ↔ Telegram userId</span><br></pre></td></tr></table></figure>
+
+<p>这样的绑定关系。</p>
+<p>这个绑定完成之后，后续无论是判断频道关注状态，还是增加其他 Telegram 相关任务，都可以继续复用。</p>
+<hr>
+<h2 id="判断用户是否已经关注频道"><a href="#判断用户是否已经关注频道" class="headerlink" title="判断用户是否已经关注频道"></a>判断用户是否已经关注频道</h2><p>账号绑定完成之后，服务端调用 Telegram 的：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">getChatMember</span><br></pre></td></tr></table></figure>
+
+<p>接口查询用户在频道中的成员状态。</p>
+<p>常见状态包括：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">creator</span><br><span class="line">administrator</span><br><span class="line">member</span><br><span class="line">left</span><br><span class="line">kicked</span><br></pre></td></tr></table></figure>
+
+<p>对于当前业务，只要用户状态是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">creator</span><br><span class="line">administrator</span><br><span class="line">member</span><br></pre></td></tr></table></figure>
+
+<p>就可以认为用户当前已经关注频道。</p>
+<p>Java 判断类似：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">String</span> <span class="variable">status</span> <span class="operator">=</span> chatMember.getString(<span class="string">&quot;status&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">return</span> <span class="string">&quot;creator&quot;</span>.equals(status)</span><br><span class="line">        || <span class="string">&quot;administrator&quot;</span>.equals(status)</span><br><span class="line">        || <span class="string">&quot;member&quot;</span>.equals(status);</span><br></pre></td></tr></table></figure>
+
+<p>如果已经关注：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">直接完成任务</span><br><span class="line">    ↓</span><br><span class="line">发放奖励</span><br></pre></td></tr></table></figure>
+
+<p>如果没有关注：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Bot 返回 Telegram 频道链接</span><br><span class="line">    ↓</span><br><span class="line">引导用户关注频道</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="使用-chat-member-监听关注状态"><a href="#使用-chat-member-监听关注状态" class="headerlink" title="使用 chat_member 监听关注状态"></a>使用 <code>chat_member</code> 监听关注状态</h2><p>将机器人设置成频道管理员之后，可以通过：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">chat_member</span><br></pre></td></tr></table></figure>
+
+<p>Update 监听频道成员状态变化。</p>
+<p>例如用户刚刚关注频道时，大概会收到这样的 Webhook：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;chat_member&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;chat&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;id&quot;</span><span class="punctuation">:</span> <span class="number">-1001234567890</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;channel&quot;</span></span><br><span class="line">    <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;old_chat_member&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;status&quot;</span><span class="punctuation">:</span> <span class="string">&quot;left&quot;</span></span><br><span class="line">    <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;new_chat_member&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;user&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;id&quot;</span><span class="punctuation">:</span> <span class="number">987654321</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;status&quot;</span><span class="punctuation">:</span> <span class="string">&quot;member&quot;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>这里最主要关注两个状态：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">old_chat_member.status = left</span><br><span class="line">new_chat_member.status = member</span><br></pre></td></tr></table></figure>
+
+<p>也就是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">left → member</span><br></pre></td></tr></table></figure>
+
+<p>可以认为用户刚刚关注了频道。</p>
+<p>这时通过：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">new_chat_member.user.id</span><br></pre></td></tr></table></figure>
+
+<p>获取发生状态变化的 Telegram 用户 ID。</p>
+<p>然后根据之前建立的：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Telegram ID ↔ Pockly ID</span><br></pre></td></tr></table></figure>
+
+<p>绑定关系找到对应用户，完成任务并发放奖励。</p>
+<hr>
+<h2 id="from-id-和-new-chat-member-user-id-的区别"><a href="#from-id-和-new-chat-member-user-id-的区别" class="headerlink" title="from.id 和 new_chat_member.user.id 的区别"></a><code>from.id</code> 和 <code>new_chat_member.user.id</code> 的区别</h2><p>这里有一个开发过程中比较容易理解错的地方。</p>
+<p>在 <code>chat_member</code> Update 中：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">chat_member.from.id</span><br></pre></td></tr></table></figure>
+
+<p>并不一定代表成员本人。</p>
+<p>它表示的是：</p>
+<blockquote>
+<p>导致或者执行这次成员状态变化的人。</p>
+</blockquote>
+<p>而真正发生状态变化的用户应该通过：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">new_chat_member.user.id</span><br></pre></td></tr></table></figure>
+
+<p>获取。</p>
+<p>普通用户自己加入频道时，两者通常是相同的，所以很容易误以为可以直接使用 <code>from.id</code>。</p>
+<p>但是如果以后出现管理员审批、Join Request 等场景，两者就可能不一致。</p>
+<p>因此业务代码中统一使用：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">new_chat_member.user.id</span><br></pre></td></tr></table></figure>
+
+<p>会更加稳妥。</p>
+<hr>
+<h2 id="为什么-Webhook-和主动查询都要保留"><a href="#为什么-Webhook-和主动查询都要保留" class="headerlink" title="为什么 Webhook 和主动查询都要保留"></a>为什么 Webhook 和主动查询都要保留</h2><p>如果只依赖：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">chat_member</span><br></pre></td></tr></table></figure>
+
+<p>会存在一个问题。</p>
+<p>比如用户在做这个任务之前，就已经关注过 Telegram 频道。</p>
+<p>那么之后打开任务时，他不会再次产生：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">left → member</span><br></pre></td></tr></table></figure>
+
+<p>事件。</p>
+<p>如果系统只依赖 Webhook，这类用户就没有办法完成任务。</p>
+<p>所以最终实现是：</p>
+<h3 id="chat-member"><a href="#chat-member" class="headerlink" title="chat_member"></a><code>chat_member</code></h3><p>负责实时监听：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">用户关注频道</span><br><span class="line">用户取消关注频道</span><br></pre></td></tr></table></figure>
+
+<h3 id="getChatMember"><a href="#getChatMember" class="headerlink" title="getChatMember"></a><code>getChatMember</code></h3><p>负责主动确认：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">用户当前到底有没有关注频道</span><br></pre></td></tr></table></figure>
+
+<p>因此即使用户之前就已经关注频道，或者某次 Webhook 没有正常处理，也可以通过主动查询完成最终状态确认。</p>
+<p>简单来说就是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">chat_member</span><br><span class="line">    ↓</span><br><span class="line">监听“发生了什么”</span><br><span class="line"></span><br><span class="line">getChatMember</span><br><span class="line">    ↓</span><br><span class="line">确认“现在是什么状态”</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="奖励幂等"><a href="#奖励幂等" class="headerlink" title="奖励幂等"></a>奖励幂等</h2><p>Telegram 频道本身允许用户不断：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">关注</span><br><span class="line"> ↓</span><br><span class="line">取消关注</span><br><span class="line"> ↓</span><br><span class="line">重新关注</span><br><span class="line"> ↓</span><br><span class="line">再次取消</span><br></pre></td></tr></table></figure>
+
+<p>因此服务端可能不断收到：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">left → member</span><br><span class="line">member → left</span><br><span class="line">left → member</span><br><span class="line">member → left</span><br></pre></td></tr></table></figure>
+
+<p>这样的 Webhook。</p>
+<p>所以不能简单地把：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">收到 left → member</span><br></pre></td></tr></table></figure>
+
+<p>直接等同于：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">发放一次奖励</span><br></pre></td></tr></table></figure>
+
+<p>当前 Telegram 关注任务本身属于 <code>once</code> 类型任务。</p>
+<p>真正发放奖励之前，还会检查该用户当前任务的完成和领奖状态。</p>
+<p>同一个用户：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">同一个 once 任务</span><br></pre></td></tr></table></figure>
+
+<p>只允许完成并领取一次奖励。</p>
+<p>因此即使 Telegram 重复产生回调，也不会重复发放奖励。</p>
+<hr>
+<h2 id="Webhook-防刷"><a href="#Webhook-防刷" class="headerlink" title="Webhook 防刷"></a>Webhook 防刷</h2><p>Telegram 的 <code>message</code> Update 基本可以理解为：</p>
+<blockquote>
+<p>用户每向 Bot 发送一条消息，就可能产生一次新的 Webhook。</p>
+</blockquote>
+<p>例如用户不断给 Bot 发送：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">你好</span><br><span class="line">123</span><br><span class="line">aaaa</span><br><span class="line">test</span><br></pre></td></tr></table></figure>
+
+<p>都会产生新的消息事件。</p>
+<p>而当前业务实际上只需要处理：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/start xxx</span><br></pre></td></tr></table></figure>
+
+<p>所以普通消息没有必要进入后续业务逻辑。</p>
+<p>可以直接过滤：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">String</span> <span class="variable">text</span> <span class="operator">=</span> message.getText();</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (text == <span class="literal">null</span> || !text.startsWith(<span class="string">&quot;/start &quot;</span>)) &#123;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样即使有人不断给 Bot 发送普通消息，也不会触发数据库查询、任务处理、奖励发放等业务。</p>
+<p>除此之外，Webhook 还可以校验 Telegram 请求携带的：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">X-Telegram-Bot-Api-Secret-Token</span><br></pre></td></tr></table></figure>
+
+<p>避免外部直接伪造 Telegram Webhook 请求。</p>
+<p>如果需要进一步加强，还可以增加：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">update_id 幂等</span><br><span class="line">Telegram ID 限流</span><br><span class="line">bindToken 有效期</span><br><span class="line">bindToken 一次性使用</span><br></pre></td></tr></table></figure>
+
+<p>这些限制。</p>
+<hr>
+<h2 id="三种-Telegram-Update-的职责"><a href="#三种-Telegram-Update-的职责" class="headerlink" title="三种 Telegram Update 的职责"></a>三种 Telegram Update 的职责</h2><p>这次开发里主要接触到了三个 Update 类型：</p>
+<h3 id="message"><a href="#message" class="headerlink" title="message"></a><code>message</code></h3><p>主要处理用户给 Bot 发送的消息。</p>
+<p>当前业务主要用于：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/start bindToken</span><br></pre></td></tr></table></figure>
+
+<p>完成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Pockly 用户 ↔ Telegram 用户</span><br></pre></td></tr></table></figure>
+
+<p>身份绑定。</p>
+<hr>
+<h3 id="chat-member-1"><a href="#chat-member-1" class="headerlink" title="chat_member"></a><code>chat_member</code></h3><p>用于监听其他成员的状态变化。</p>
+<p>例如：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">left → member</span><br></pre></td></tr></table></figure>
+
+<p>代表用户加入群组或者关注频道。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">member → left</span><br></pre></td></tr></table></figure>
+
+<p>代表用户退出群组或者取消关注频道。</p>
+<hr>
+<h3 id="my-chat-member"><a href="#my-chat-member" class="headerlink" title="my_chat_member"></a><code>my_chat_member</code></h3><p>这个和 <code>chat_member</code> 很容易混淆。</p>
+<p><code>my_chat_member</code> 指的是：</p>
+<blockquote>
+<p>Bot 自己在某个群或者频道里的成员状态变化。</p>
+</blockquote>
+<p>例如：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Bot 被加入频道</span><br><span class="line">Bot 被设置为管理员</span><br><span class="line">Bot 被移除</span><br><span class="line">Bot 的管理员权限发生变化</span><br></pre></td></tr></table></figure>
+
+<p>所以当前“用户关注频道任务”的核心业务主要使用：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">message</span><br><span class="line">+</span><br><span class="line">chat_member</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="最终结构"><a href="#最终结构" class="headerlink" title="最终结构"></a>最终结构</h2><p>整个 Telegram 频道关注任务最后可以拆成三个核心能力。</p>
+<h3 id="start"><a href="#start" class="headerlink" title="/start"></a><code>/start</code></h3><p>负责：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">App 用户 ↔ Telegram 用户</span><br></pre></td></tr></table></figure>
+
+<p>账号绑定。</p>
+<h3 id="getChatMember-1"><a href="#getChatMember-1" class="headerlink" title="getChatMember"></a><code>getChatMember</code></h3><p>负责：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">主动确认用户当前是否关注频道</span><br></pre></td></tr></table></figure>
+
+<h3 id="chat-member-2"><a href="#chat-member-2" class="headerlink" title="chat_member"></a><code>chat_member</code></h3><p>负责：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">实时监听用户关注 / 取消关注行为</span><br></pre></td></tr></table></figure>
+
+<p>最后再通过任务系统自身的：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">once</span><br></pre></td></tr></table></figure>
+
+<p>任务机制保证奖励不会重复发放。</p>
+<p>整体实现本身并不复杂。</p>
+<p>真正比较容易踩坑的地方，主要还是 Telegram Bot API 里面：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">message</span><br><span class="line">chat_member</span><br><span class="line">my_chat_member</span><br></pre></td></tr></table></figure>
+
+<p>三种 Update 的区别，以及：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">from.id</span><br><span class="line">new_chat_member.user.id</span><br></pre></td></tr></table></figure>
+
+<p>这些字段实际代表的含义。</p>
+<p>把这些关系理清之后，整体业务逻辑就比较清晰了。</p>
+<p>这套账号绑定和成员状态校验逻辑后面也可以继续复用，如果以后增加 Telegram 群组任务、多频道关注任务或者其他 Telegram 活动，基本不需要重新设计整个流程。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="http://example.com">Asteryn</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="http://example.com/2026/09/20/telegram-channel-follow-task-development/">http://example.com/2026/09/20/telegram-channel-follow-task-development/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="http://example.com" target="_blank">Asteryn</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Java/">Java</a><a class="post-meta__tags" href="/tags/Telegram/">Telegram</a><a class="post-meta__tags" href="/tags/Telegram-Bot/">Telegram Bot</a><a class="post-meta__tags" href="/tags/Webhook/">Webhook</a><a class="post-meta__tags" href="/tags/Bot-API/">Bot API</a><a class="post-meta__tags" href="/tags/%E4%BB%BB%E5%8A%A1%E7%B3%BB%E7%BB%9F/">任务系统</a></div><div class="post-share"><div class="social-share" data-image="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/09/16/fcm-analytics-statistics-troubleshooting/" title="一次折腾很久的 FCM 推送问题排查：最后发现推送没问题，统计坏了"><img class="cover" src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post" loading='lazy'><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">一次折腾很久的 FCM 推送问题排查：最后发现推送没问题，统计坏了</div></div><div class="info-2"><div class="info-item-1">一次持续很久的 FCM 推送问题排查复盘。Firebase 后台的 Impression 和 Open 最终降到 0，但 BigQuery、业务埋点和实际测试都证明推送链路正常。最终通过 Android Logcat 定位到 analytics library is missing，确认真正出问题的是 Firebase Analytics 统计链路。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/06/16/activity-reward-architecture-blog/" title="从 CRUD 到统一发奖与资产消耗：一次活动系统架构重构记录"><img class="cover" src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80" alt="cover" loading='lazy'><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-16</div><div class="info-item-2">从 CRUD 到统一发奖与资产消耗：一次活动系统架构重构记录</div></div><div class="info-2"><div class="info-item-1">这次活动模块包含签到、任务、邀请奖励、抽奖、道具包、流水查询等一组接口。最开始设计时，我很自然地沿着传统 CRUD 的思路往下拆：签到接口自己判断今天是否签到、自己发积分；任务接口自己判断任务是否可领取、自己写任务记录、自己加金币；抽奖接口自己扣金币、自己随机奖品、自己发放奖励；道具接口自己扣库存、自己延长 VIP。 这种写法短期能跑，但很快会遇到一个问题：活动越来越多时，真正复杂的不是接口数量，而是“奖励怎么发”和“资产怎么扣”...</div></div></div></a><a class="pagination-related" href="/2026/06/17/spring-boot-bean-conflict-online-troubleshooting/" title="Spring Boot 线上启动报 Bean 冲突的一次排查记录"><img class="cover" src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=1200&q=80" alt="cover" loading='lazy'><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-17</div><div class="info-item-2">Spring Boot 线上启动报 Bean 冲突的一次排查记录</div></div><div class="info-2"><div class="info-item-1">问题现象最近在部署一个 Spring Boot 项目时，遇到了一个比较迷惑的问题： 测试服务器可以正常启动，线上服务器启动失败。 线上启动时报错如下： 123456Application run failedorg.springframework.beans.factory.BeanDefinitionStoreException: Failed to parse configuration class [com.muni.Vid...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/astery-avatar-starry.svg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/ loading='lazy'></div><div class="author-info-name">Asteryn</div><div class="author-info-description">后端工程与系统设计笔记</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">11</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">34</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/YiLinyun"><i class="fab fa-github"></i><span>GitHub</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">Asteryn 正在整理后端架构、活动系统、消息链路与工程实践。</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B"><span class="toc-number">1.</span> <span class="toc-text">整体流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-start-%E5%AE%8C%E6%88%90%E8%B4%A6%E5%8F%B7%E7%BB%91%E5%AE%9A"><span class="toc-number">2.</span> <span class="toc-text">使用 &#x2F;start 完成账号绑定</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A4%E6%96%AD%E7%94%A8%E6%88%B7%E6%98%AF%E5%90%A6%E5%B7%B2%E7%BB%8F%E5%85%B3%E6%B3%A8%E9%A2%91%E9%81%93"><span class="toc-number">3.</span> <span class="toc-text">判断用户是否已经关注频道</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-chat-member-%E7%9B%91%E5%90%AC%E5%85%B3%E6%B3%A8%E7%8A%B6%E6%80%81"><span class="toc-number">4.</span> <span class="toc-text">使用 chat_member 监听关注状态</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#from-id-%E5%92%8C-new-chat-member-user-id-%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="toc-number">5.</span> <span class="toc-text">from.id 和 new_chat_member.user.id 的区别</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-Webhook-%E5%92%8C%E4%B8%BB%E5%8A%A8%E6%9F%A5%E8%AF%A2%E9%83%BD%E8%A6%81%E4%BF%9D%E7%95%99"><span class="toc-number">6.</span> <span class="toc-text">为什么 Webhook 和主动查询都要保留</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#chat-member"><span class="toc-number">6.1.</span> <span class="toc-text">chat_member</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#getChatMember"><span class="toc-number">6.2.</span> <span class="toc-text">getChatMember</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A5%96%E5%8A%B1%E5%B9%82%E7%AD%89"><span class="toc-number">7.</span> <span class="toc-text">奖励幂等</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Webhook-%E9%98%B2%E5%88%B7"><span class="toc-number">8.</span> <span class="toc-text">Webhook 防刷</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E7%A7%8D-Telegram-Update-%E7%9A%84%E8%81%8C%E8%B4%A3"><span class="toc-number">9.</span> <span class="toc-text">三种 Telegram Update 的职责</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#message"><span class="toc-number">9.1.</span> <span class="toc-text">message</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#chat-member-1"><span class="toc-number">9.2.</span> <span class="toc-text">chat_member</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#my-chat-member"><span class="toc-number">9.3.</span> <span class="toc-text">my_chat_member</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%80%E7%BB%88%E7%BB%93%E6%9E%84"><span class="toc-number">10.</span> <span class="toc-text">最终结构</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#start"><span class="toc-number">10.1.</span> <span class="toc-text">&#x2F;start</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#getChatMember-1"><span class="toc-number">10.2.</span> <span class="toc-text">getChatMember</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#chat-member-2"><span class="toc-number">10.3.</span> <span class="toc-text">chat_member</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/09/20/telegram-channel-follow-task-development/" title="Telegram 频道关注任务开发记录"><img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Telegram 频道关注任务开发记录"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/09/20/telegram-channel-follow-task-development/" title="Telegram 频道关注任务开发记录">Telegram 频道关注任务开发记录</a><time datetime="2026-09-20T07:30:00.000Z" title="发表于 2026-09-20 15:30:00">2026-09-20</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/09/16/fcm-analytics-statistics-troubleshooting/" title="一次折腾很久的 FCM 推送问题排查：最后发现推送没问题，统计坏了"><img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="一次折腾很久的 FCM 推送问题排查：最后发现推送没问题，统计坏了"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/09/16/fcm-analytics-statistics-troubleshooting/" title="一次折腾很久的 FCM 推送问题排查：最后发现推送没问题，统计坏了">一次折腾很久的 FCM 推送问题排查：最后发现推送没问题，统计坏了</a><time datetime="2026-09-16T07:30:00.000Z" title="发表于 2026-09-16 15:30:00">2026-09-16</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/10/fcm-received-vs-message-delivered/" title="Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录"><img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/08/10/fcm-received-vs-message-delivered/" title="Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录">Firebase FCM 推送触达率只有 1%？一次被 Received 指标误导的踩坑记录</a><time datetime="2026-08-10T08:55:00.000Z" title="发表于 2026-08-10 16:55:00">2026-08-10</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/20/spring-boot-api-performance-test-report-2026-07-20/" title="Spring Boot 接口压测实战：同步日志、数据库连接池与远程 Redis 的性能影响"><img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring Boot 接口压测实战：同步日志、数据库连接池与远程 Redis 的性能影响"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/07/20/spring-boot-api-performance-test-report-2026-07-20/" title="Spring Boot 接口压测实战：同步日志、数据库连接池与远程 Redis 的性能影响">Spring Boot 接口压测实战：同步日志、数据库连接池与远程 Redis 的性能影响</a><time datetime="2026-07-20T11:00:00.000Z" title="发表于 2026-07-20 19:00:00">2026-07-20</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/14/502-incident-04-sa-optimization/" title="SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身"><img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/07/14/502-incident-04-sa-optimization/" title="SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身">SA 风控接口从平均 2 秒到 100ms：一次只增不减的链路瘦身</a><time datetime="2026-07-14T12:30:00.000Z" title="发表于 2026-07-14 20:30:00">2026-07-14</time></div></div></div></div></div></div></main><footer id="footer" style="background-image: url(https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&amp;fit=crop&amp;w=2200&amp;q=80);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By Asteryn</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5-b1</a></span></div><div class="footer_custom_text">用工程笔记保存思考的上下文。</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5-b1"></script><script src="/js/main.js?v=5.5.5-b1"></script><script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.1.0/dist/medium-zoom.min.js"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
